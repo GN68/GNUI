@@ -55,6 +55,7 @@ local BoxAPI = {}
 
 ---@class GNUI.Box
 ---
+---@field offsetPos Vector2
 ---@field pos Vector2
 ---@field size Vector2
 ---@field minSize Vector2
@@ -99,11 +100,11 @@ local BoxAPI = {}
 ---@field absMargin Vector4
 ---@field absBounds Vector4
 ---
----@field text string
+---@field text string[]
 ---@field textAlignment Vector2
 ---@field wrapText boolean
 ---
----@field flaggedUpdate integer?
+---@field flaggedUpdate boolean
 ---@field canvas GNUI.Canvas
 ---
 ---@field variant string?
@@ -151,6 +152,7 @@ local nextFree = 1
 function BoxAPI.new(canvas)
 	local self = {
 
+		offsetPos = vec(0,0),
 		pos = vec(0, 0),
 		size = vec(-1, -1),
 		minSize = vec(0, 0),
@@ -192,6 +194,8 @@ function BoxAPI.new(canvas)
 		pendingPos = false,
 		pendingVisual = false,
 
+		text = {},
+		
 		wrapText = true,
 
 		canvas = canvas,
@@ -247,10 +251,27 @@ end
 ---@return self
 function Box:setPos(x, y)
 	---@cast self GNUI.Box
-	local newPos = gncommon.vec2(x, y, self.pos)
+	local newPos = gncommon.vec2(x, y)
 	if newPos ~= self.pos then
 		self.pos = newPos
 		self:update("pos")
+	end
+	return self
+end
+
+---Sets the offset position of the box,
+---@overload fun(self: GNUI.Box ,pos : Vector2): GNUI.Box
+---@param x number?
+---@param y number?
+---@generic self
+---@param self self
+---@return self
+function Box:setOffsetPos(x, y)
+	---@cast self GNUI.Box
+	local newPos = gncommon.vec2(x, y)
+	if newPos ~= self.offsetPos then
+		self.offsetPos = newPos
+		self.parent:update("pos")
 	end
 	return self
 end
@@ -402,7 +423,7 @@ end
 ---@return self
 function Box:setMinimumSize(x, y)
 	---@cast self GNUI.Box
-	self.minSize = gncommon.vec2(x, y, self.minSize)
+	self.minSize = gncommon.vec2(x, y)
 	self:recalculateMinimumSize()
 	self:update("dim")
 	return self
@@ -433,7 +454,7 @@ end
 ---@return self
 function Box:setMaximumSize(x, y)
 	---@cast self GNUI.Box
-	self.maxSize = gncommon.vec2(x, y, self.maxSize)
+	self.maxSize = gncommon.vec2(x, y)
 	self.finalMaxSize = self.maxSize -- lmao
 	self:update("dim")
 	return self
@@ -454,11 +475,19 @@ function Box:setSizing(x, y)
 	return self
 end
 
+---Gets the stored size for this box, for the actual size used for displaying, use `Box:getFinalSize()`
 ---@return Vector2
 function Box:getSize()
 	local minSize = self:getMinimumSize()
 	---@diagnostic disable-next-line: return-type-mismatch, param-type-mismatch
 	return math.clamp(self.size, minSize, self.maxSize)
+end
+
+---Returns the final size used to display this box.
+---@return Vector2
+function Box:getFinalSize()
+	---@diagnostic disable-next-line: return-type-mismatch, param-type-mismatch
+	return self.finalSize
 end
 
 ---Sets the layout to use for its children,
@@ -672,10 +701,9 @@ function Box:getParent() return self.parent end
 ---@param slot (integer|string)?
 function Box:setText(text, slot)
 	---@cast self GNUI.Box
-	if self.text ~= text then
-		self.text = text
-		slot = slot or 1
-		if self.sprites[slot] then self.sprites[slot]:setText(text) end
+	slot = slot or 1
+	if self.text[slot] ~= text then
+		self.text[slot] = text
 		self:update("text", "dim")
 	end
 	return self
@@ -939,19 +967,14 @@ function Box:forceUpdate()
 	local doDim    = self.pendingDim
 	local doPos    = self.pendingPos or doDim
 	local doVisual = self.pendingVisual
+	
+	
 	if doDim then
+		self:_updateTexts()
 		self:_solveFit(false)
 		self:_solveFill(false)
 		self:_solveFit(true)
 		self:_solveFill(true)
-	end
-
-	if doDim or doPos then
-		-- _solveLayout only runs for dim updates.
-		-- Flow layout positions are DERIVED FROM SIZES.
-		-- If sizes didn't change, no relative positions changed either.
-		self:_solveLayout(false)
-		self:_solveLayout(true)
 	end
 
 	if doPos then
@@ -962,10 +985,20 @@ function Box:forceUpdate()
 		local parentAbs = (self.parent and self.parent.absPos) or vec(0, 0)
 		self:_calcAbsPos(parentAbs)
 	end
-
+	
+	if doDim or doPos then
+		-- _solveLayout only runs for dim updates.
+		-- Flow layout positions are DERIVED FROM SIZES.
+		-- If sizes didn't change, no relative positions changed either.
+		self:_solveLayout(false)
+		self:_solveLayout(true)
+	end
+	
 	if doDim or doPos or doVisual then
 		self:_updateSprites()
 	end
+
+	
 	self:calculateBounds()
 	self.flaggedUpdate = false
 	self.pendingDim    = false
@@ -994,7 +1027,8 @@ function Box:_solveFit(isY)
 		if self.text then
 			local availW = isY and (self.finalSize.x - padding.x - padding.z) or
 				 math.huge
-			local ts = utils.getTextSize(self.text, availW, self.wrapText)
+			--TODO: account for other texts
+			local ts = utils.getTextSize(self.text[next(self.text)] or "", availW, self.wrapText)
 			textComp = isY and ts.y or ts.x
 		end
 
@@ -1091,17 +1125,17 @@ function Box:_solveLayout(isY)
 	if not self.visible then
 		return
 	end
-
+	
 	if self.layout == "FIXED" then
 		for _, child in ipairs(self.children) do
-			child.finalPos[x] = child.pos[x]
+			child.finalPos[x] = child.pos[x] + child.offsetPos[x]
 		end
 	elseif self.layout == (isY and "VERTICAL" or "HORIZONTAL") then
 		local cursor = padding[x]
 		for _, child in ipairs(self.children) do
 			if child.visible then
 				local m = child:getMargin()
-				child.finalPos[x] = cursor + m[x]
+				child.finalPos[x] = cursor + m[x] + child.offsetPos[x]
 				cursor = cursor + child.finalSize[x] + m[x] + m[z] + self.childGap
 			end
 		end
@@ -1109,14 +1143,14 @@ function Box:_solveLayout(isY)
 		for _, child in ipairs(self.children) do
 			if child.visible then
 				local m = child:getMargin()
-				child.finalPos[x] = math.lerp(padding[x] + m[x],
-					self.finalSize[x] - child.finalSize[x] -
-					padding[z] - m[z],
+				child.finalPos[x] = math.lerp(
+				padding[x] + m[x],
+					self.finalSize[x] - child.finalSize[x] - padding[z] - m[z],
 					self.childAlign[x] * 0.5 + 0.5)
+					+ child.offsetPos[x]
 			end
 		end
 	end
-
 	for _, child in ipairs(self.children) do child:_solveLayout(isY) end
 end
 
@@ -1155,11 +1189,21 @@ function Box:_updateSprites()
 	
 	d:setVisualChildIndex(self.visualID, self.childIndex)
 
+	
+	self:_updateTexts()
 	for _, sprite in pairs(self.sprites) do
 		sprite:setSize(self.finalSize.x, self.finalSize.y)
 	end
-
 	for _, child in ipairs(self.children) do child:_updateSprites() end
 end
+
+function Box:_updateTexts()
+	for key, value in pairs(self.text) do
+		if self.sprites[key] then
+			self.sprites[key]:setText(value)
+		end
+	end
+end
+
 
 return BoxAPI

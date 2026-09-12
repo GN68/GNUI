@@ -245,6 +245,10 @@ function ButtonAPI.parse(layout,canvas,children,button)
 	if layout.toggle then self:setToggle(layout.toggle) end
 	if layout.pressed then self:press() end
 	
+	for index, child in ipairs(children) do
+		self:addChild(child)
+	end
+	
 	return self
 end
 

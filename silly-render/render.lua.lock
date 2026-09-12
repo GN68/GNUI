@@ -1,0 +1,378 @@
+local gncommon = require("lib.gncommon") ---@type GNCommon
+
+local VERBOSE = false
+
+---@diagnostic disable: param-type-mismatch
+---@class GNUI.RenderAPI
+local RenderAPI = {}
+
+
+---@class GNUI.Text
+---@field text string
+---@field color string
+
+
+---An abstract class for all the renderers for GNUI
+---@class GNUI.RenderInstance
+---@field canvas GNUI.Canvas
+---@field visuals table<integer,GNUI.Render.Visual>
+---@field model ModelPart
+local Render = {}
+Render.__index = Render
+
+
+---@type GNUI.RenderInstance[]
+local renders = {}
+
+---Creates a new render instance
+---@param canvas GNUI.Canvas
+---@return GNUI.RenderInstance
+function RenderAPI.new(canvas)
+	local model = models:newPart("GNUIRenderer","HUD")
+	local self = {
+		canvas = canvas,
+		visuals = {},
+		model = model
+	}
+	renders[#renders+1] = self
+	
+	setmetatable(self, Render)
+	return self
+end
+
+
+-----@param box GNUI.Box
+--	function Render:update(box,i)
+--		local size = box.bakedSize
+--		local pos = box.bakedPos
+--		local sprite = box.sprite
+--		--────────────────────────-< FIGURA SPECIFIC CODE >-────────────────────────--
+--		if sprite then
+--			local task = self.model:newBlock(box.id)
+--			task:block("minecraft:glass")
+--			:scale(size.x/16,size.y/16,1/16)
+--			:pos(pos.x,pos.y,-i)
+--		end
+--		--────────────────────────-< END OF FIGURA SPECIFIC CODE >-────────────────────────--
+--	end
+
+--	---@param box GNUI.Box
+--	function Render:updateRecursive(box,i)
+--		i = i or 0
+--		for _, child in ipairs(box.children) do
+--			self:updateRecursive(child,i+1)
+--		end
+--		self:update(box,i)
+--	end
+--	
+--	
+--	
+--	function Render:updateAll()
+--		self:updateRecursive(self.canvas)
+--	end
+
+
+--────────────────────────-< Figura Specific Code >-────────────────────────--
+
+---@class GNUI.Render.Visual
+---@field render GNUI.RenderInstance
+---@field type string
+---@field id integer
+---
+---@field index integer
+---@field childCount integer
+---@field children GNUI.Render.Visual[]
+---
+---@field pos Vector2
+---@field size Vector2
+---@field free fun()
+---@field model ModelPart
+---
+---@field texturePath string
+---@field textureSize Vector2
+---@field uv Vector4
+---@field quad SpriteTask
+---
+---@field color Vector3
+---
+---@field padding Vector4
+---@field label TextTask
+---@field text string|GNUI.Text[]
+---@field jsonText string
+---@field textColor string
+---@field textAlignment Vector2
+---@field wrapText boolean
+
+function Render:free(id)
+	self.visuals[id]:free()
+	self.visuals[id] = nil
+end
+
+
+---@return integer
+function Render:newVisualQuad()
+	local id = #self.visuals+1
+	local model = self.model:newPart("quad" .. id):setParentType("SKULL")
+	local new = {
+		type = "quad",
+		render = self,
+		id = id,
+		index = 10,
+		childCount = 0,
+		color = vec(1,1,1),
+		textColor = "ffffff",
+		pos = vec(0,0),
+		children = {},
+		padding = vec(0,0,0,0),
+		quad = model:newSprite("sprite"):setRenderType("CUTOUT_EMISSIVE_SOLID"),
+		model = model,
+		wrapText = true,
+		textAlignment = vec(-1,1)
+	}
+	if VERBOSE then print("NEW ",id) end
+	self.visuals[id] = new
+	return id
+end
+
+
+---Frees the given visual
+---
+---Works for all visual types
+---@param id integer
+function Render:free(id)
+	if VERBOSE then print("REM ",id) end
+	self.visuals[id].quad:remove()
+end
+
+
+
+---Sets the position of the visual, relative to its parent
+---
+---Works for all visual types
+---@param id integer
+---@param x number
+---@param y number
+function Render:setPos(id,x,y)
+	local visual = self.visuals[id]
+	visual.model:pos(-x,-y,-visual.index)
+	visual.pos = vec(x,y)
+	if VERBOSE then print("POS ",id,x,y) end
+end
+
+
+local function parseText(text,defaultColor)
+	local tableText
+	if type(text) == "string" then
+		tableText = {{text=text,color="#"..defaultColor}}
+	else
+		if type(text) == "table" then
+			for index, value in ipairs(text) do
+				if not value.color then
+					value.color = defaultColor
+				end
+			end
+			tableText = text
+		end
+	end
+	return toJson(tableText)
+end
+
+
+---@param visual GNUI.Render.Visual
+local function updateLabelText(visual)
+	if visual.text then
+		if not visual.label then
+			visual.label = visual.model:newText("label")
+		end
+		visual.jsonText = parseText(visual.text,visual.textColor)
+		visual.label:setText(visual.jsonText)
+	end
+end
+
+---@param visual GNUI.Render.Visual
+local function updateLabelPos(visual)
+	if visual.label and visual.text then
+		visual.label:alignment(visual.textAlignment.x == -1 and "LEFT" or visual.textAlignment.x == 0 and "CENTER" or "RIGHT")
+		local fineWidth = visual.size.x-visual.padding.x-visual.padding.z
+		visual.label:setWidth(fineWidth)
+		local textDim = client.getTextDimensions(visual.jsonText, fineWidth, visual.wrapText)
+		local align = visual.textAlignment*0.5+0.5
+		visual.label:setPos(
+			math.floor(math.lerp(-visual.padding.x,visual.padding.z,align.x) - visual.size.x * (align.x)+0.5),
+			math.floor(math.lerp(
+				-visual.padding.y,
+				-visual.size.y+visual.padding.w+textDim.y,
+				align.y
+			)+0.5)
+		)
+	end
+end
+
+---NOTE: Quad exclusive function
+---
+---Sets the size of the visual
+---@param id integer
+---@param x number
+---@param y number
+function Render:setSize(id,x,y)
+	local visual = self.visuals[id]
+	visual.size = vec(x,y)
+	
+	if visual.quad then
+		local size = visual.textureSize
+		if size then
+			visual.quad:scale(x/size.x,y/size.y,1)
+		end
+	end
+	
+	updateLabelPos(visual)
+	if VERBOSE then print("SIZ ",id,x,y) end
+end
+
+
+---@param id integer
+---@param left number
+---@param top number
+---@param right number
+---@param bottom number
+function Render:setPadding(id,left,top,right,bottom)
+	local visual = self.visuals[id]
+	visual.padding = vec(left,top,right,bottom)
+	updateLabelPos(visual)
+	if VERBOSE then print("PAD ",id,left,top,right,bottom) end
+end
+
+
+function Render:setIndex(id,index)
+	local visual = self.visuals[id]
+	local pos = visual.pos
+	visual.index = index
+	visual.model:pos(pos.x,pos.y,index)
+	if VERBOSE then print("IDX ",id,index) end
+end
+
+
+---NOTE: Quad exclusive function
+---
+---Sets the texture path of the visual
+---@param path string
+function Render:setTexture(id,path)
+	assert(path,"No texture path given")
+	assert(textures[path],"Texture path \""..path.."\" not found")
+	local visual = self.visuals[id]
+	local texture = textures[path]
+	local textureSize = texture:getDimensions()
+	local uv = vec(0,0,1,1)
+	visual.texturePath = path
+	visual.textureSize = textureSize
+	visual.uv = uv
+	visual.quad
+	:texture(textures[path],textureSize.x,textureSize.y)
+	:setUV(uv.xy / visual.textureSize)
+	:setRegion(uv.zw * visual.textureSize)
+	
+	if VERBOSE then print("TEX ",id,path) end
+end
+
+function Render:setBoxColor(id,r,g,b)
+	local visual = self.visuals[id]
+	visual.quad:setColor(r,g,b)
+	if VERBOSE then print("CLR ",id,r,g,b) end
+end
+
+
+---@param id integer
+---@param r number
+---@param g number
+---@param b number
+function Render:setTextColor(id,r,g,b)
+	local visual = self.visuals[id]
+	visual.textColor = vectors.rgbToHex(r,g,b)
+	visual.jsonText = parseText(visual.text,visual.textColor)
+	updateLabelText(visual)
+	updateLabelPos(visual)
+	if VERBOSE then print("TCL ",id,r,g,b) end
+end
+
+
+---NOTE: Quad exclusive function
+---
+---Sets the UV of the visual
+---@overload fun(self: GNUI.RenderInstance, id: integer, uv1uv2: Vector4): self
+---@overload fun(self: GNUI.RenderInstance, id: integer, uv1: Vector2, uv2: Vector2): self
+---@param id integer
+---@param u1 number
+---@param v1 number
+---@param u2 number
+---@param v2 number
+function Render:setUV(id,u1,v1,u2,v2)
+	local visual = self.visuals[id]
+	assert(visual,"Visual Quad "..id.." not found")
+	local uv = gncommon.vec4(u1,v1,u2,v2)
+	visual.uv = uv
+	visual.quad
+	:setUV(uv.xy/visual.textureSize)
+	:setRegion((uv.zw-uv.xy))
+	if VERBOSE then print("UV ",id,u1,v1,u2,v2) end
+end
+
+
+---@param id any
+---@param text string|GNUI.Text[]
+function Render:setText(id,text)
+	assert(self.visuals[id],"Visual Quad "..id.." not found")
+	local visual = self.visuals[id]
+	visual.text = text
+	
+	updateLabelText(visual)
+	updateLabelPos(visual)
+	if VERBOSE then print("TXT ",id,text) end
+end
+
+
+---@param id integer
+---@param h -1|0|1
+---@param v -1|0|1
+function Render:setTextAlignment(id,h,v)
+	local visual = self.visuals[id]
+	visual.textAlignment = vec(h,v)
+	updateLabelPos(visual)
+	if VERBOSE then print("TCL ",id,h) end
+end
+
+
+---NOTE: For all parent types
+---
+---Sets the parent of the visual
+---@param id integer
+---@param parentID integer
+---@param index integer
+function Render:setParent(id,parentID,index)
+	assert(self.visuals[id],"Visual Quad "..id.." not found")
+	local visual = self.visuals[id]
+	
+	if visual.parent then
+		visual.parent.model:removeChild(visual.model:remove())
+		visual.parent.childCount = visual.parent.childCount - 1
+		visual.parent.children[index] = nil
+		visual.parent = nil
+		visual.index = 1
+	end
+	
+	if parentID ~= 0 then
+		local parent = self.visuals[parentID]
+		assert(parent,"Visual Quad with ID: "..tostring(parentID).." not found")
+		visual.parent = parent
+		if parent then
+			parent.model:addChild(visual.model:remove())
+		end
+		visual.index = index
+		parent.children[index] = visual
+		parent.childCount = parent.childCount + 1
+		
+		visual.model:scale(1,1,0.5/math.max(parent.childCount,1))
+	end
+	if VERBOSE then print("PNT ",id,parentID) end
+end
+
+return RenderAPI

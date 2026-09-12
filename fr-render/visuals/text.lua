@@ -58,7 +58,8 @@ function Display:newLabel(visualID)
 		textOffset = vec(0,0),
 		textColor = "ffffff",
 		wrapText = true,
-		label = vis.model:newText("task"..taskID),
+		visible = true,
+		label = vis.model:newText("task"..taskID):setVisible(false),
 	}
 	
 	setmetatable(self,Label)
@@ -92,6 +93,7 @@ local function updateLabelPos(task)
 				align.y
 			)-1) + task.textOffset.y
 		)
+		task.label:setVisible(task.visible)
 	end
 end
 
