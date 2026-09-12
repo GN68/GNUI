@@ -5,10 +5,31 @@
 \____/_/ |_/ source: link ]]
 
 --- fixes emoji width to be 8 pixels wide
-local EMOJI_WIDTH_PATCH = true
+local EMOJI_WIDTH_PATCH = false
 
 ---@class GNUI.utils
 local util = {}
+
+
+
+local NEXTLINE_PLACEHOLDER = "!b4z1n6@"
+---converts json text into normal string
+---@param text string
+---@return string
+local function getWidthAccurateText(text)
+	local jsonText = text
+	if type(text) == "string" then
+		jsonText = {text=jsonText}
+	end
+	local name = (toJson(jsonText):gsub("\\n",NEXTLINE_PLACEHOLDER))
+	local ok, item = pcall(world.newItem,"egg[item_name='"..name.."']")
+	if ok then
+		local out = item:getName():gsub(NEXTLINE_PLACEHOLDER,"\n")
+		return out
+	else
+		return text
+	end
+end
 
 
 ---@return Vector2
@@ -40,15 +61,15 @@ end
 ---@param wrap any
 ---@return Vector2
 function util.getTextSize(content, maxWidth, wrap)
-	content = EMOJI_WIDTH_PATCH and content:gsub(":[^:]+:","W") or content
+	content = getWidthAccurateText(content)
 	
-	return client.getTextDimensions(content, maxWidth+1, wrap):sub(1,2)
+	return client.getTextDimensions(content, maxWidth+1, wrap):sub(1,1)
 end
 
 ---@param text string
 ---@return integer
 function util.getTextWidth(text)
-	content = EMOJI_WIDTH_PATCH and content:gsub(":[^:]+:","W") or content
+	content = getWidthAccurateText(content)
 	return client.getTextWidth(text)
 end
 
