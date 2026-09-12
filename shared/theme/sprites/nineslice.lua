@@ -241,10 +241,10 @@ function Nineslice:applyAll(style)
 	if style then
 		self:setTexture(style.texturePath)
 		self:setUV(style.uv:unpack())
-		self:setColor(style.color:unpack())
+		self:setColor((self.box.color and self.box.color or style.color):unpack())
 		self:setTextColor(style.textColor:unpack())
-		self:setPadding(style.padding:unpack())
-		self:setTextAlignment(self.box.textAlignment or style.textAlignment:unpack())
+		self:setPadding((self.box.padding and self.box.padding or style.padding):unpack())
+		self:setTextAlignment((self.box.textAlignment and self.box.textAlignment or style.textAlignment):unpack())
 		if style.childGap then self.box:setChildGap(style.childGap) end
 	end
 	

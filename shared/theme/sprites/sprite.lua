@@ -250,7 +250,7 @@ function Sprite:applyAll(style)
 
 	if style then
 		self:setTextColor(style.textColor and gncommon.color(style.textColor).xyz or self.textColor)
-		self:setTextAlignment(style.textAlignment:unpack())
+		self:setTextAlignment(self.box.textAlignment and self.box.textAlignment:unpack() or style.textAlignment:unpack())
 		if style.childGap then self.box:setChildGap(style.childGap) end
 	end
 end
