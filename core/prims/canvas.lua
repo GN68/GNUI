@@ -61,6 +61,7 @@ local CanvasAPI = {}
 ---@field KEY_INPUT GNUI.Canvas.Event.KeyInput
 ---@field MOUSE_INPUT GNUI.Canvas.Event.MouseInput
 ---@field CURSOR_MOVED GNUI.Canvas.Event.CursorMoved
+---@field HOVERED_BOX_CHANGED GN.Event
 local Canvas = {}
 Canvas.__index = function(t, i)
 	return rawget(t, i) or Canvas[i] or Box.index(t, i)
@@ -84,6 +85,7 @@ function CanvasAPI.new()
 	
 	self.FLUSH_UPDATES = Event.new()
 	self.POST_FLUSH_UPDATES = Event.new()
+	self.HOVERED_BOX_CHANGED = Event.new()
 	
 	self.CURSOR_MOVED = Event.new()
 
@@ -153,7 +155,9 @@ function Canvas:setCursorPos(x, y)
 				self.hoveredBox.isHovered = false
 				self.hoveredBox.CURSOR_PRESENCE_CHANGED:invoke(false)
 			end
+			local old = self.hoveredBox
 			self.hoveredBox = newHoveredBox
+			self.HOVERED_BOX_CHANGED:invoke(newHoveredBox,old)
 			if newHoveredBox then
 				newHoveredBox.isHovered = true
 				newHoveredBox.CURSOR_PRESENCE_CHANGED:invoke(true)
@@ -269,8 +273,8 @@ end
 
 
 ---Love2D Exclusive
-function Canvas:draw()
-	self.display:draw()
+function Canvas:draw(graphics)
+	self.display:draw(graphics)
 end
 
 return CanvasAPI
