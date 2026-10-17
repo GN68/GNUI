@@ -71,9 +71,10 @@ function BoxAPI.parse(layout, canvas, children, extraParser)
 			box:setSizing(layout.sizing[1], layout.sizing[2])
 		end
 	else
-		if box.text then
+		if box.text and #box.text > 0 then
 			box:setSizing("FILL", "FIT")
 		else
+			print(hasSizeX,hasSizeY)
 			box:setSizing(hasSizeX and "FIXED" or "FIT", hasSizeY and "FIXED" or "FIT")
 		end
 	end
