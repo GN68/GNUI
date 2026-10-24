@@ -101,6 +101,8 @@ local BoxAPI = {}
 ---@field absBounds Vector4
 ---
 ---@field text string[]
+---@field textColor Vector3
+---@field textScale number
 ---@field textAlignment Vector2
 ---@field wrapText boolean
 ---
@@ -195,6 +197,7 @@ function BoxAPI.new(canvas)
 		pendingVisual = false,
 
 		text = {},
+		textScale = 1,
 		
 		wrapText = true,
 
@@ -711,6 +714,24 @@ end
 
 ---@generic self
 ---@param self self
+---@overload fun(self: self, scale: number): self
+---@return self
+function Box:setTextScale(sx,sy)
+	---@cast self GNUI.Box
+	sx = sx or 1
+	sy = sy or sx
+	local newTextScale = vec(sx,sy)
+	if newTextScale ~= self.textScale then
+		self.textScale = newTextScale
+		self:update("text")
+		for key, value in pairs(self.sprites) do value:setTextScale(sx, sy) end
+	end
+	
+	return self
+end
+
+---@generic self
+---@param self self
 ---@return self
 ---@param h -1|0|1
 ---@param v -1|0|1
@@ -721,6 +742,24 @@ function Box:setTextAlignment(h, v)
 		self.textAlignment = newAlignment
 		self:update("text")
 		for key, value in pairs(self.sprites) do value:setTextAlignment(h, v) end
+	end
+	return self
+end
+
+---@generic self
+---@param self self
+---@return self
+---@param r number
+---@param g number
+---@param b number
+---@overload fun(self: self,rgb: Vector3): self
+function Box:setTextColor(r, g, b)
+	---@cast self GNUI.Box
+	local newColor = gncommon.vec3(r, g, b)
+	if newColor ~= self.textColor then
+		self.textColor = newColor
+		self:update("text")
+		for key, value in pairs(self.sprites) do value:setTextColor(newColor) end
 	end
 	return self
 end
@@ -1027,8 +1066,7 @@ function Box:_solveFit(isY)
 		if self.text then
 			local availW = isY and (self.finalSize.x - padding.x - padding.z) or
 				 math.huge
-			--TODO: account for other texts
-			local ts = utils.getTextSize(self.text[next(self.text)] or "", availW, self.wrapText)
+			local ts = utils.getTextSize(self.text[next(self.text)] or "", availW, self.wrapText) * self.textScale
 			textComp = isY and ts.y or ts.x
 		end
 

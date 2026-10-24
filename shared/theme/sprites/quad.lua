@@ -111,10 +111,15 @@ function Quad:applyAll(style)
 	if style.texturePath then self:setTexture(style and style.texturePath) end
 	if style.uv then self:setUV(style.uv:unpack())end
 	if style.color then self:setColor(self.box.color and self.box.color or style.color) end
-	if style.textColor then self:setTextColor(style and style.textColor) end
----@diagnostic disable-next-line: param-type-mismatch
-	if style.textAlignment then self:setTextAlignment((self.box.textAlignment and self.box.textAlignment or style.textAlignment):unpack()) end
 	if style.childGap then self.box:setChildGap(self.box.childGap and self.box.childGap or style.childGap) end
+	
+	if style then
+		self:setTextColor(self.box.textColor or (style.textColor and gncommon.color(style.textColor).xyz) or self.textColor)
+		self:setTextAlignment(self.box.textAlignment and self.box.textAlignment:unpack() or style.textAlignment:unpack())
+	else
+		self:setTextColor(self.box.textColor or self.textColor)
+		self:setTextAlignment(self.box.textAlignment and self.box.textAlignment:unpack())
+	end
 end
 
 

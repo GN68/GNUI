@@ -154,8 +154,7 @@ function Sprite:setTextColor(r, g, b)
 		self.textColor = color
 	end
 	if self.textColor then
-		self.display:setLabelColor(self.box.visualID, self.labelID, self.textColor.x, self.textColor.y,
-			self.textColor.z)
+		self.display:setLabelColor(self.box.visualID, self.labelID, self.textColor.x, self.textColor.y, self.textColor.z)
 	end
 end
 
@@ -205,6 +204,11 @@ function Sprite:setTextAlignment(h, v)
 end
 
 
+function Sprite:setTextScale(x,y)
+	self.display:setLabelScale(self.box.visualID, self.labelID,x,y)
+end
+
+
 ---@param x number
 ---@param y number
 function Sprite:setTextOffset(x, y)
@@ -249,9 +253,12 @@ function Sprite:applyAll(style)
 	self:setPadding()
 
 	if style then
-		self:setTextColor(style.textColor and gncommon.color(style.textColor).xyz or self.textColor)
+		self:setTextColor(self.box.textColor or (style.textColor and gncommon.color(style.textColor).xyz) or self.textColor)
 		self:setTextAlignment(self.box.textAlignment and self.box.textAlignment:unpack() or style.textAlignment:unpack())
-		if style.childGap then self.box:setChildGap(style.childGap) end
+		self.box:setChildGap(style.childGap)
+	else
+		self:setTextColor(self.box.textColor or self.textColor)
+		self:setTextAlignment(self.box.textAlignment and self.box.textAlignment:unpack())
 	end
 end
 

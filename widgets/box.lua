@@ -29,6 +29,7 @@ setmetatable(BoxAPI, {
 ---@class GNUI.Layout
 ---@field type nil|"box"
 ---@field name string?
+---@field style string?
 ---@field pos Vector2?
 ---@field size Vector2?
 ---@field minSize Vector2?
@@ -37,11 +38,13 @@ setmetatable(BoxAPI, {
 ---@field gap number?
 ---@field layout GNUI.Box.LayoutMode?
 ---@field childAlign Vector2?
----@field text string?
+---@field text string|table?
 ---@field textAlign {[1]:(-1|0|1),[2]:(-1|0|1)}?
 ---@field margin Vector4?
 ---@field padding Vector4?
 ---@field color Vector3?
+---@field textColor Vector3|string?
+---@field textScale Vector2|number?
 ---@field wrapText boolean?
 ---@field captureInput boolean?
 ---@field textOffset Vector2?
@@ -114,6 +117,8 @@ function BoxAPI.parse(layout, canvas, children, extraParser)
 	if layout.text then box:setText(layout.text) end
 	if layout.textAlign then box:setTextAlignment(layout.textAlign[1], layout.textAlign[2]) end
 	if layout.color then box:setColor(layout.color) end
+	if layout.textColor then box:setTextColor(layout.textColor) end
+	if layout.textScale then box:setTextScale(layout.textScale) end
 	if layout.gap then box:setChildGap(layout.gap) end
 	if type(layout.wrapText) == "boolean" then box:setWrapText(layout.wrapText) end
 	if type(layout.captureInput) == "boolean" then box:setCaptureInputs(layout.captureInput) end
