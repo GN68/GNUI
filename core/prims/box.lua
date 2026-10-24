@@ -197,7 +197,7 @@ function BoxAPI.new(canvas)
 		pendingVisual = false,
 
 		text = {},
-		textScale = 1,
+		textScale = vec(1,1),
 		
 		wrapText = true,
 
@@ -1049,6 +1049,7 @@ end
 ---@param isY boolean
 function Box:_solveFit(isY)
 	local x = isY and "y" or "x"
+	local y = isY and "x" or "y"
 	local z = isY and "w" or "z"
 	for _, child in ipairs(self.children) do child:_solveFit(isY) end
 	if not self.visible then
@@ -1064,8 +1065,7 @@ function Box:_solveFit(isY)
 		local textComp = 0
 
 		if self.text then
-			local availW = isY and (self.finalSize.x - padding.x - padding.z) or
-				 math.huge
+			local availW = ((self.finalSize[y] - padding[x] - padding[z]) / self.textScale[x])
 			local ts = utils.getTextSize(self.text[next(self.text)] or "", availW, self.wrapText) * self.textScale
 			textComp = isY and ts.y or ts.x
 		end

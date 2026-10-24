@@ -84,8 +84,8 @@ local function updateLabelPos(task)
 	if task.label and task.text then
 		task.label:alignment(task.textAlignment.x == -1 and "LEFT" or task.textAlignment.x == 0 and "CENTER" or "RIGHT")
 		local fineWidth = task.size.x-task.padding.x-task.padding.z+1
-		task.label:setWidth(task.wrapText and fineWidth or math.huge)
-		local textDim = client.getTextDimensions(task.jsonText, fineWidth, task.wrapText)*task.scale
+		task.label:setWidth(task.wrapText and (fineWidth / task.scale.x + 2) or math.huge)
+		local textDim = client.getTextDimensions(task.jsonText, fineWidth, task.wrapText)*(task.scale*task.scale*1.1)
 		local align = task.textAlignment*0.5+0.5
 		task.label:setPos(
 			math.floor(math.lerp(-task.padding.x,task.padding.z,align.x) - task.size.x * (align.x)) + task.textOffset.x,
@@ -94,7 +94,8 @@ local function updateLabelPos(task)
 				-task.size.y+task.padding.w+textDim.y,
 				align.y
 			)-task.scale.y) + task.textOffset.y
-		):scale(task.scale.x,task.scale.y,1)
+		)
+		:scale(task.scale.x,task.scale.y,1)
 		task.label:setVisible(task.visible)
 	end
 end
@@ -209,8 +210,8 @@ function Display:setLabelScale(visualID,taskID,x,y)
 	local task = self:getTask(visualID,taskID)
 	if not task then return end
 	task.scale = vec(x,y or x)
-	updateLabelPos(task)
 	updateLabelText(task)
+	updateLabelPos(task)
 end
 
 
