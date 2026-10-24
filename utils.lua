@@ -27,7 +27,7 @@ local function getWidthAccurateText(text)
 		local out = item:getName():gsub(NEXTLINE_PLACEHOLDER,"\n")
 		return out
 	else
-		return text
+		return toJson(text)
 	end
 end
 
