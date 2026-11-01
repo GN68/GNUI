@@ -240,7 +240,14 @@ end
 function ButtonAPI.parse(layout,canvas,children,button)
 	local self = button or Box.parse(layout,canvas,children,ButtonAPI.new)
 
-	self:setStyleVariant(layout.style)
+	local t = type(layout.style)
+	if t == "string" or t == "nil" then
+		self:setStyleVariant(layout.style)
+	else
+		if layout.style then
+			Theme.applyStyle(layout.style,box,1)
+		end
+	end
 	
 	if layout.toggle then self:setToggle(layout.toggle) end
 	if layout.pressed then self:press() end

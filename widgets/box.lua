@@ -87,7 +87,7 @@ function BoxAPI.parse(layout, canvas, children, extraParser)
 	end
 	if layout.childAlign then box:setChildAlign(layout.childAlign) end
 	
-	local t = type(layout.style)
+	
 	
 	
 
@@ -105,6 +105,7 @@ function BoxAPI.parse(layout, canvas, children, extraParser)
 		end
 	end
 	
+	local t = type(layout.style)
 	if t == "string" or t == "nil" then
 		box:setStyleVariant(layout.style)
 	else
