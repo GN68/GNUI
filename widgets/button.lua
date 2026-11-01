@@ -10,7 +10,7 @@ local cfg = require(BASE..".config") ---@type GNUI.config
 local Box = require(BASE..".widgets.box") ---@type GNUI.BoxAPI
 local Event = require(cfg.EVENT)
 
-local Style = require(cfg.THEME..".init") ---@type GNUI.ThemeAPI
+local Theme = require(cfg.THEME..".init") ---@type GNUI.ThemeAPI
 local Layout = require(cfg.LAYOUT..".init") ---@type GNUI.LayoutAPI
 local utils = require(cfg.UTILS)
 
@@ -43,6 +43,14 @@ Button.__type = "Button"
 function ButtonAPI.index(t,i)
 	return Button.__index(t,i)
 end
+
+setmetatable(ButtonAPI, {
+	__index = function(t, i)
+		return rawget(t, i)
+			or Button[i]
+			or Box.index(t, i)
+	end,
+})
 
 
 ---@param canvas GNUI.Canvas
@@ -125,12 +133,12 @@ function Button:applyApropriateStyle()
 	---@cast self GNUI.Widget.Button
 	self.sprites[2]:setVisible(self.isHovered or (self.down and not self.toggle))
 	if self.down then
-		self.sprites[1]:setStyle(Style.getStyleFromBox(self,"pressed"))
+		self.sprites[1]:setStyle(Theme.getStyleFromBox(self,"pressed"))
 	else
 		if self.isHovered then
-			self.sprites[1]:setStyle(Style.getStyleFromBox(self,"hovered"))
+			self.sprites[1]:setStyle(Theme.getStyleFromBox(self,"hovered"))
 		else
-			self.sprites[1]:setStyle(Style.getStyleFromBox(self,"normal"))
+			self.sprites[1]:setStyle(Theme.getStyleFromBox(self,"normal"))
 		end
 	end
 	return self
@@ -204,7 +212,7 @@ function Button:setStyleVariant(variant)
 	---@cast self GNUI.Box
 	
 	self.variant = variant
-	local style = Style.getStyle(self, variant, "normal")
+	local style = Theme.getStyle(self, variant, "normal")
 	
 	-- replaces existing style or creates a new one
 	--TODO: replace styling method with a cleaner one.
@@ -214,7 +222,7 @@ function Button:setStyleVariant(variant)
 		style:newInstance(self,1)
 	end
 	
-	Style.getStyle("box", "highlight", "normal")
+	Theme.getStyle("box", "highlight", "normal")
 	:newInstance(self,2):setVisible(false)
 	
 	self:recalculateMargin()
@@ -245,7 +253,7 @@ function ButtonAPI.parse(layout,canvas,children,button)
 		self:setStyleVariant(layout.style)
 	else
 		if layout.style then
-			Style.applyStyle(layout.style,self,1)
+			Theme.applyStyle(layout.style,self,1)
 		end
 	end
 	
