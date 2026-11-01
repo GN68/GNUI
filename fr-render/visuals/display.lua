@@ -108,7 +108,7 @@ end
 ---@param vis GNUI.Render.Visual
 local function updateChildrenIndexes(vis)
 	for i, child in ipairs(vis.children) do
-		vis.index = i
+		child.index = i -- Fixed
 	end
 end
 
@@ -164,10 +164,11 @@ function Display:setVisualChildIndex(visualID,index)
 				temp.index = ogIndex
 			end
 			
-			self:updateDimensions(parent.id)
-			if parent.children[index] then
-				self:updateDimensions(parent.id)
+			self:updateDimensions(vis.id)
+			if temp then
+				self:updateDimensions(temp.id)
 			end
+			self:updateDimensions(parent.id)
 		end
 	end
 end

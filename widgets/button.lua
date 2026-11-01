@@ -245,7 +245,7 @@ function ButtonAPI.parse(layout,canvas,children,button)
 		self:setStyleVariant(layout.style)
 	else
 		if layout.style then
-			Theme.applyStyle(layout.style,box,1)
+			Style.applyStyle(layout.style,self,1)
 		end
 	end
 	

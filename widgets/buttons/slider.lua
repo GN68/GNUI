@@ -198,7 +198,7 @@ end
 function Slider:setNormalizedValue(value)
 	---@cast self GNUI.Widget.Slider
 	self.value = math.map(value, 0, 1, self.min, self.max)
-	self.VALUE_CHANGED:invoke(value)
+	self.VALUE_CHANGED:invoke(self.value)
 	self:updateKnob()
 	return self
 end
@@ -347,9 +347,11 @@ end
 ---@generic self
 ---@param self self
 ---@return self
-function Button:applyApropriateStyle()
-	---@cast self GNUI.Widget.Button
-	self.sprites.highlight:setVisible(self.isHovered)
+function Slider:applyApropriateStyle()
+	---@cast self GNUI.Widget.Slider
+	if self.sprites[2] then
+		self.sprites[2]:setVisible(self.isHovered)
+	end
 	if self.down then
 		self.sprites[1]:setStyle(Style.getStyleFromBox(self, "pressed"))
 	else

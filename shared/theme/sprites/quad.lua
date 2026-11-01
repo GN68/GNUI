@@ -36,7 +36,6 @@ function Quad.new(box,slot)
 	assert(box,"no GNUI.Box given")
 	local self = Sprite.new(box,slot)
 	---@cast self GNUI.Sprite.Quad
-	self.id = self.display:newSprite(box.visualID)
 	
 	setmetatable(self, Quad)
 	return self

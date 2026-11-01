@@ -69,8 +69,8 @@ end
 ---@param text string
 ---@return integer
 function util.getTextWidth(text)
-	content = getWidthAccurateText(content)
-	return client.getTextWidth(text)
+	local content = getWidthAccurateText(text)
+	return client.getTextWidth(content)
 end
 
 -- Thankyou 4P5!

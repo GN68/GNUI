@@ -880,8 +880,9 @@ function Box:free()
 	if self.canvas then
 		self.canvas.queueUpdate[self.flaggedUpdate] = nil
 		self.flaggedUpdate = nil
-		self.canvas = nil
 		for index, sprite in pairs(self.sprites) do sprite:free() end
+		self.canvas.display:removeVisual(self.visualID)
+		self.canvas = nil
 	end
 end
 
@@ -1075,7 +1076,7 @@ function Box:_solveFit(isY)
 
 		if parallel then
 			for _, child in ipairs(self.children) do
-				if child.sizing[x] ~= "FILL" then
+				if child.visible and child.sizing[x] ~= "FILL" then
 					local m = child:getMargin()
 					inner = inner + child.finalSize[x] + m[x] + m[z]
 				end
@@ -1091,7 +1092,7 @@ function Box:_solveFit(isY)
 			inner = inner + self.childGap * math.max(visibleChildCount - 1, 0)
 		else
 			for _, child in ipairs(self.children) do
-				if child.sizing[x] ~= "FILL" then
+				if child.visible and child.sizing[x] ~= "FILL" then
 					local m = child:getMargin()
 					inner = math.max(inner, child.finalSize[x] + m[x] + m[z])
 				end
@@ -1118,12 +1119,14 @@ function Box:_solveFill(isY)
 		local fillers = {}
 
 		for _, child in ipairs(self.children) do
-			local m = child:getMargin()
-			if child.sizing[x] == "FILL" then
-				fillers[#fillers + 1] = child
-				child.finalSize[x] = 0 -- reset; will be set below
+			if child.visible then
+				local m = child:getMargin()
+				if child.sizing[x] == "FILL" then
+					fillers[#fillers + 1] = child
+					child.finalSize[x] = 0 -- reset; will be set below
+				end
+				remaining = remaining - child.finalSize[x] - m[x] - m[z]
 			end
-			remaining = remaining - child.finalSize[x] - m[x] - m[z]
 		end
 		
 		local visibleChildCount = 0
@@ -1142,9 +1145,8 @@ function Box:_solveFill(isY)
 			end
 		end
 	else
-		a = a and (a + 1)
 		for _, child in ipairs(self.children) do
-			if child.sizing[x] == "FILL" then
+			if child.visible and child.sizing[x] == "FILL" then
 				local m = child:getMargin()
 				child.finalSize[x] = math.max(child.finalMinSize[x] or 0,
 					self.finalSize[x] - padding[x] -

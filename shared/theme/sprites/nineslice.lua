@@ -49,7 +49,7 @@ function Nineslice.new(box,slot)
 	---@cast self GNUI.Sprite.Nineslice
 	
 	local id = box.visualID
-	self.idTopLeft = self.display:newSprite(id)
+	self.idTopLeft = self.taskID
 	self.idTop = self.display:newSprite(id)
 	self.idTopRight = self.display:newSprite(id)
 	
@@ -60,8 +60,6 @@ function Nineslice.new(box,slot)
 	self.idBottomRight = self.display:newSprite(id)
 	self.idBottom = self.display:newSprite(id)
 	self.idBottomLeft = self.display:newSprite(id)
-	
-	self.labelID = box.canvas.display:newLabel(id)
 	
 	self.ids = {
 		self.idTopLeft,
@@ -261,8 +259,6 @@ function Nineslice:free()
 	for index, id in ipairs(self.ids) do
 		self.display:removeSprite(self.box.visualID, id)
 	end
-	
-	self.display:removeVisual(self.box.visualID)
 	
 	self.display:removeLabel(self.box.visualID, self.labelID)
 end
