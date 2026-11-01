@@ -707,7 +707,7 @@ function Box:setText(text, slot)
 	slot = slot or 1
 	if self.text[slot] ~= text then
 		self.text[slot] = text
-		self:update("text", "dim")
+		self:update("text")
 	end
 	return self
 end
@@ -969,8 +969,14 @@ function Box:update(...)
 
 
 	for _, flag in ipairs({ ... }) do
-		if flag == "dim" or flag == "text" then
+		if flag == "dim" then
 			hasDim = true
+		elseif flag == "text" then
+			if self.sizing.x == "FIT" or self.sizing.y == "FIT" then
+				hasDim = true
+			else
+				hasVisual = true
+			end
 		elseif flag == "pos" then
 			hasPos = true
 		elseif flag == "color" then
@@ -1026,7 +1032,7 @@ function Box:forceUpdate()
 		self:_calcAbsPos(parentAbs)
 	end
 	
-	if doDim or doPos then
+	if doDim then
 		-- _solveLayout only runs for dim updates.
 		-- Flow layout positions are DERIVED FROM SIZES.
 		-- If sizes didn't change, no relative positions changed either.
@@ -1034,12 +1040,18 @@ function Box:forceUpdate()
 		self:_solveLayout(true)
 	end
 	
-	if doDim or doPos or doVisual then
+	if doDim or doVisual then
 		self:_updateSprites()
+	elseif doPos then
+		if self.canvas then
+			self.canvas.display:setPos(self.visualID, self.finalPos.x, self.finalPos.y)
+		end
 	end
 
 	
-	self:calculateBounds()
+	if doDim then
+		self:calculateBounds()
+	end
 	self.flaggedUpdate = false
 	self.pendingDim    = false
 	self.pendingPos    = false
