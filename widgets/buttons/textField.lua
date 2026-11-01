@@ -250,9 +250,11 @@ end
 ---@return self
 function TextField:setField(field)
 	---@cast self GNUI.Widget.TextField
-	self.field = field
-	self.cursor = #self.field
-	self:updateTextField()
+	if self.field ~= field then
+		self.field = field
+		self.cursor = #self.field
+		self:updateTextField()
+	end
 	return self
 end
 
@@ -262,9 +264,9 @@ end
 ---@return self
 function TextField:setEditingField(field)
 	---@cast self GNUI.Widget.TextField
-	if self.down then
+	if self.down and self.editingField ~= field then
 		self.editingField = field
-		self.cursor = #self.field
+		self.cursor = #self.editingField
 		self:updateTextField()
 	end
 	return self
@@ -277,8 +279,10 @@ end
 ---@return self
 function TextField:setPlaceholder(placeholder)
 	---@cast self GNUI.Widget.TextField
-	self.placeholder = placeholder
-	self:updateTextField()
+	if self.placeholder ~= placeholder then
+		self.placeholder = placeholder
+		self:updateTextField()
+	end
 	return self
 end
 
