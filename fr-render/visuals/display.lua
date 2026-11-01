@@ -137,7 +137,7 @@ function Display:addChild(visualID,childVisualID)
 	
 	child.parent = vis
 	local id = #vis.children + 1
-	vis.children[id] = vis
+	vis.children[id] = child
 	child.index = id
 	child.model:moveTo(vis.model)
 	self:updateDimensions(child.id)
