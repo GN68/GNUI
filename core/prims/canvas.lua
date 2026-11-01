@@ -174,7 +174,7 @@ end
 local function processUnhandledInputCapture(box, event, ...)
 	local outs = box[event]:invoke(...)
 	for index, value in ipairs(outs) do
-		if value then return true end
+		if value[1] then return true end
 	end
 	if box.parent then
 		return processUnhandledInputCapture(box.parent, event, ...)
@@ -199,7 +199,7 @@ local function proccessInputCapture(box, event, ...)
 	-- check if its been captured
 	local outs = box[event]:invoke(...)
 	for index, value in ipairs(outs) do
-		if value then
+		if value[1] then
 			return true
 		end
 	end
