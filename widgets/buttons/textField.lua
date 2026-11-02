@@ -84,6 +84,14 @@ function TextField.index(t,i)
 	return TextField.__index(t,i)
 end
 
+TextFieldAPI.index = TextField.index
+
+setmetatable(TextFieldAPI, {
+	__index = function(t, i)
+		return rawget(t, i) or TextField[i] or Button.index(t, i) or Box.index(t, i)
+	end,
+})
+
 
 ---@param canvas GNUI.Canvas
 ---@return GNUI.Widget.TextField
@@ -404,6 +412,7 @@ end
 ---@return self
 function TextField:applyApropriateStyle()
 	---@cast self GNUI.Widget.TextField
+	if not self.sprites[1] then return self end
 	if self.down then
 		if self.validField then
 			self.sprites[1]:setStyle(Style.getStyleFromBox(self,"active"))

@@ -44,7 +44,7 @@ setmetatable(BoxAPI, {
 ---@field padding Vector4?
 ---@field color Vector3?
 ---@field textColor Vector3|string?
----@field textScale Vector2|number?
+---@field textScale number?
 ---@field wrapText boolean?
 ---@field captureInput boolean?
 ---@field textOffset Vector2?

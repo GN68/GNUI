@@ -13,7 +13,7 @@ local Display = require("./display") ---@type GNUI.Render.Display
 ---@field padding Vector4
 ---@field text string|GNUI.Text[]
 ---@field jsonText string
----@field scale Vector2
+---@field scale number
 ---@field textColor string
 ---@field textAlignment Vector2
 ---@field textOffset Vector2
@@ -53,7 +53,7 @@ function Display:newLabel(visualID)
 	local self = {
 		
 		size = vec(0,0),
-		scale = vec(1,1),
+		scale = 1,
 		padding = vec(0,0,0,0),
 		
 		textAlignment = vec(-1,1),
@@ -84,8 +84,8 @@ local function updateLabelPos(task)
 	if task.label and task.text then
 		task.label:alignment(task.textAlignment.x == -1 and "LEFT" or task.textAlignment.x == 0 and "CENTER" or "RIGHT")
 		local fineWidth = task.size.x-task.padding.x-task.padding.z+1
-		task.label:setWidth(task.wrapText and (fineWidth / task.scale.x + 2) or math.huge)
-		local textDim = client.getTextDimensions(task.jsonText, fineWidth, task.wrapText)*(task.scale*task.scale*1.1)
+		task.label:setWidth(task.wrapText and (fineWidth / task.scale + 2) or math.huge)
+		local textDim = client.getTextDimensions(task.jsonText, fineWidth / task.scale, task.wrapText)*(task.scale*1.1)
 		local align = task.textAlignment*0.5+0.5
 		task.label:setPos(
 			math.floor(math.lerp(-task.padding.x,task.padding.z,align.x) - task.size.x * (align.x)) + task.textOffset.x,
@@ -93,9 +93,9 @@ local function updateLabelPos(task)
 				-task.padding.y,
 				-task.size.y+task.padding.w+textDim.y,
 				align.y
-			)-task.scale.y) + task.textOffset.y
+			)-task.scale) + task.textOffset.y
 		)
-		:scale(task.scale.x,task.scale.y,1)
+		:scale(task.scale,task.scale,1)
 		task.label:setVisible(task.visible)
 	end
 end
@@ -206,10 +206,10 @@ end
 ---@param taskID integer
 ---@param x number
 ---@param y number
-function Display:setLabelScale(visualID,taskID,x,y)
+function Display:setLabelScale(visualID,taskID,s)
 	local task = self:getTask(visualID,taskID)
 	if not task then return end
-	task.scale = vec(x,y or x)
+	task.scale = s
 	updateLabelText(task)
 	updateLabelPos(task)
 end

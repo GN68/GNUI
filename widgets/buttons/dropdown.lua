@@ -144,7 +144,7 @@ end
 function Dropdown:_updateMinimumWidth()
 	local maxW = 0
 	for _, entry in ipairs(self.entries) do
-		local w = utils.getTextSize(entry, math.huge, false).x * self.textScale.x
+		local w = utils.getTextSize(entry, math.huge, false).x * self.textScale
 		if w > maxW then
 			maxW = w
 		end

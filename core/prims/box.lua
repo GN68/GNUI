@@ -201,7 +201,7 @@ function BoxAPI.new(canvas)
 		pendingVisual = false,
 
 		text = {},
-		textScale = vec(1,1),
+		textScale = 1,
 		
 		wrapText = true,
 
@@ -718,17 +718,13 @@ end
 
 ---@generic self
 ---@param self self
----@overload fun(self: self, scale: number): self
 ---@return self
-function Box:setTextScale(sx,sy)
+function Box:setTextScale(scale)
 	---@cast self GNUI.Box
-	sx = sx or 1
-	sy = sy or sx
-	local newTextScale = vec(sx,sy)
-	if newTextScale ~= self.textScale then
-		self.textScale = newTextScale
+	if scale ~= self.textScale then
+		self.textScale = scale
 		self:update("text")
-		for key, value in pairs(self.sprites) do value:setTextScale(sx, sy) end
+		for key, value in pairs(self.sprites) do value:setTextScale(scale) end
 	end
 	
 	return self
@@ -1081,7 +1077,7 @@ function Box:_solveFit(isY)
 		local textComp = 0
 
 		if self.text then
-			local availW = isY and ((self.finalSize.x - padding.x - padding.z) / self.textScale.x) or math.huge
+			local availW = isY and ((self.finalSize.x - padding.x - padding.z) / self.textScale) or math.huge
 			local ts = utils.getTextSize(self.text[next(self.text)] or "", availW, self.wrapText) * self.textScale
 			textComp = isY and ts.y or ts.x
 		end

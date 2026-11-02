@@ -204,8 +204,8 @@ function Sprite:setTextAlignment(h, v)
 end
 
 
-function Sprite:setTextScale(x,y)
-	self.display:setLabelScale(self.box.visualID, self.labelID,x,y)
+function Sprite:setTextScale(s)
+	self.display:setLabelScale(self.box.visualID, self.labelID,s)
 end
 
 
