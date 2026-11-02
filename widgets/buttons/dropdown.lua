@@ -4,6 +4,7 @@
 / /_/ / /|  /  desc: the dropdown widget for GNUI
 \____/_/ |_/ source: link ]]
 
+
 local BASE = ((...):gsub("/", ".")):match(".+%.GNUI")
 local cfg = require(BASE .. ".config") ---@type GNUI.config
 
@@ -52,14 +53,24 @@ function DropdownAPI.new(box, canvas, children)
 	---@cast self GNUI.Widget.Dropdown
 	setmetatable(self, Dropdown)
 
-	self:setMinimumSize(0, 11)
+	self:setTextAlignment(-1,0)
+	
 	self.toggle = true
 	self.value = 0
 	self.entries = {}
 	self.entryButtons = {}
 	self.placeholder = ""
 	self.VALUE_CHANGED = Event.new()
-
+	self:setLayout("HORIZONTAL_REVERSED")
+	
+	self:parse({
+		type="button",
+		captureInput=false,
+		sizing = {"FIXED","FILL"},
+		text="+",
+		size = vec(11,0),
+	})
+	
 	local popup = canvas:parse({
 		style = "opaque",
 		layout = "VERTICAL",
@@ -172,6 +183,7 @@ function Dropdown:addEntry(text, index)
 		type = "button",
 		style = self:_getEntryStyleVariant(),
 		text = text,
+		textAlign = {-1,0},
 		wrapText = false,
 		sizing = { "FILL", "FIT" },
 	})
