@@ -22,6 +22,7 @@ local function getWidthAccurateText(text)
 		jsonText = {text=jsonText}
 	end
 	local name = (toJson(jsonText):gsub("\\n",NEXTLINE_PLACEHOLDER))
+	name = name:gsub(" ","..") -- workaround to make sure spaces are counted towards width
 	local ok, item = pcall(world.newItem,"egg[item_name='"..name.."']")
 	if ok then
 		local out = item:getName():gsub(NEXTLINE_PLACEHOLDER,"\n")
