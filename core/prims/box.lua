@@ -29,6 +29,8 @@ local BoxAPI = {}
 ---| "HORIZONTAL"
 ---| "VERTICAL_REVERSED"
 ---| "HORIZONTAL_REVERSED"
+---| "VERTICAL_WRAP"
+---| "HORIZONTAL_WRAP"
 ---| "FIXED"
 ---| {size?:fun(self:GNUI.Box,children:GNUI.Box[],isY:boolean):(Vector2|number)?,pos?:fun(self:GNUI.Box,children:GNUI.Box[],isY:boolean)}
 
@@ -1086,6 +1088,8 @@ function Box:_solveFit(isY)
 
 		local parallel = (self.layout == (isY and "VERTICAL" or "HORIZONTAL"))
 			or (self.layout == (isY and "VERTICAL_REVERSED" or "HORIZONTAL_REVERSED"))
+			or (self.layout == (isY and "VERTICAL_WRAP" or "HORIZONTAL_WRAP"))
+		local crossWrap = (self.layout == (isY and "HORIZONTAL_WRAP" or "VERTICAL_WRAP"))
 		local inner = 0
 
 		if parallel then
@@ -1104,6 +1108,29 @@ function Box:_solveFit(isY)
 			end
 			
 			inner = inner + self.childGap * math.max(visibleChildCount - 1, 0)
+		elseif crossWrap then
+			local p = isY and "x" or "y"
+			local pEnd = isY and "z" or "w"
+			local availPrimary = (self.finalSize[p] > 0 and self.finalSize[p] or self.size[p]) - padding[p] - padding[pEnd]
+			local cursorP = 0
+			local lineMaxCross = 0
+			local hasItem = false
+			for _, child in ipairs(self.children) do
+				if child.visible and child.sizing[x] ~= "FILL" then
+					local m = child:getMargin()
+					local childP = child.finalSize[p] + m[p] + m[pEnd]
+					local childC = child.finalSize[x] + m[x] + m[z]
+					if hasItem and availPrimary > 0 and (cursorP + childP > availPrimary) then
+						inner = inner + lineMaxCross + self.childGap
+						cursorP = 0
+						lineMaxCross = 0
+					end
+					cursorP = cursorP + childP + self.childGap
+					lineMaxCross = math.max(lineMaxCross, childC)
+					hasItem = true
+				end
+			end
+			inner = inner + lineMaxCross
 		else
 			for _, child in ipairs(self.children) do
 				if child.visible and child.sizing[x] ~= "FILL" then
@@ -1133,6 +1160,7 @@ function Box:_solveFill(isY)
 	local padding = self:getPadding()
 	local parallel = (self.layout == (isY and "VERTICAL" or "HORIZONTAL"))
 		or (self.layout == (isY and "VERTICAL_REVERSED" or "HORIZONTAL_REVERSED"))
+		or (self.layout == (isY and "VERTICAL_WRAP" or "HORIZONTAL_WRAP"))
 	if not self.visible then
 		self.finalSize[x] = 0
 		return
@@ -1181,6 +1209,9 @@ function Box:_solveFill(isY)
 		self.layout.size(self, self.children, isY)
 	end
 	for _, child in ipairs(self.children) do child:_solveFill(isY) end
+	if isY and self.layout == "VERTICAL_WRAP" and self.sizing.x == "FIT" then
+		self:_solveFit(false)
+	end
 end
 
 ---@param isY boolean
@@ -1226,6 +1257,36 @@ function Box:_solveLayout(isY)
 				local m = child:getMargin()
 				child.finalPos[x] = cursor - m[z] - child.finalSize[x] + child.offsetPos[x]
 				cursor = cursor - child.finalSize[x] - m[x] - m[z] - self.childGap
+			end
+		end
+	elseif self.layout == "HORIZONTAL_WRAP" or self.layout == "VERTICAL_WRAP" then
+		if isY then
+			local isVert = (self.layout == "VERTICAL_WRAP")
+			local p = isVert and "y" or "x"
+			local pEnd = isVert and "w" or "z"
+			local c = isVert and "x" or "y"
+			local cEnd = isVert and "z" or "w"
+			local maxPrimary = self.finalSize[p] - padding[pEnd]
+			local cursorP = padding[p]
+			local cursorC = padding[c]
+			local lineMaxCross = 0
+			local hasItem = false
+			for _, child in ipairs(self.children) do
+				if child.visible then
+					local m = child:getMargin()
+					local childP = child.finalSize[p] + m[p] + m[pEnd]
+					local childC = child.finalSize[c] + m[c] + m[cEnd]
+					if hasItem and (cursorP + childP > maxPrimary) then
+						cursorP = padding[p]
+						cursorC = cursorC + lineMaxCross + self.childGap
+						lineMaxCross = 0
+					end
+					child.finalPos[p] = cursorP + m[p] + child.offsetPos[p]
+					child.finalPos[c] = cursorC + m[c] + child.offsetPos[c]
+					cursorP = cursorP + childP + self.childGap
+					lineMaxCross = math.max(lineMaxCross, childC)
+					hasItem = true
+				end
 			end
 		end
 	else
