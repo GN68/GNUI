@@ -27,8 +27,10 @@ local BoxAPI = {}
 ---@alias GNUI.Box.LayoutMode string?
 ---| "VERTICAL"
 ---| "HORIZONTAL"
+---| "VERTICAL_REVERSED"
+---| "HORIZONTAL_REVERSED"
 ---| "FIXED"
----| {size:fun(self:GNUI.Box,children:GNUI.Box[]),pos:fun(self:GNUI.Box,children:GNUI.Box[])}
+---| {size?:fun(self:GNUI.Box,children:GNUI.Box[],isY:boolean):(Vector2|number)?,pos?:fun(self:GNUI.Box,children:GNUI.Box[],isY:boolean)}
 
 ---@class GNUI.Box.Event.CharInput : GN.Event
 ---@field register fun(self,func:fun(char: string))
@@ -1083,6 +1085,7 @@ function Box:_solveFit(isY)
 		end
 
 		local parallel = (self.layout == (isY and "VERTICAL" or "HORIZONTAL"))
+			or (self.layout == (isY and "VERTICAL_REVERSED" or "HORIZONTAL_REVERSED"))
 		local inner = 0
 
 		if parallel then
@@ -1113,6 +1116,14 @@ function Box:_solveFit(isY)
 		self.finalSize[x] = math.max(self.finalMinSize[x], inner, textComp) +
 			 padding[x] + padding[z]
 	end
+	if type(self.layout) == "table" and self.layout.size and sz == "FIT" then
+		local res = self.layout.size(self, self.children, isY)
+		if type(res) == "number" then
+			self.finalSize[x] = math.max(self.finalMinSize[x], res)
+		elseif res then
+			self.finalSize[x] = math.max(self.finalMinSize[x], res[x])
+		end
+	end
 end
 
 ---@param isY boolean
@@ -1121,6 +1132,7 @@ function Box:_solveFill(isY)
 	local z = isY and "w" or "z"
 	local padding = self:getPadding()
 	local parallel = (self.layout == (isY and "VERTICAL" or "HORIZONTAL"))
+		or (self.layout == (isY and "VERTICAL_REVERSED" or "HORIZONTAL_REVERSED"))
 	if not self.visible then
 		self.finalSize[x] = 0
 		return
@@ -1165,6 +1177,9 @@ function Box:_solveFill(isY)
 			end
 		end
 	end
+	if type(self.layout) == "table" and self.layout.size and self.sizing[x] ~= "FIT" then
+		self.layout.size(self, self.children, isY)
+	end
 	for _, child in ipairs(self.children) do child:_solveFill(isY) end
 end
 
@@ -1177,7 +1192,21 @@ function Box:_solveLayout(isY)
 		return
 	end
 	
-	if self.layout == "FIXED" then
+	if type(self.layout) == "table" then
+		for _, child in ipairs(self.children) do
+			if child.visible then
+				local m = child:getMargin()
+				child.finalPos[x] = math.lerp(
+					padding[x] + m[x],
+					self.finalSize[x] - child.finalSize[x] - padding[z] - m[z],
+					self.childAlign[x] * 0.5 + 0.5)
+					+ child.offsetPos[x]
+			end
+		end
+		if isY and self.layout.pos then
+			self.layout.pos(self, self.children, isY)
+		end
+	elseif self.layout == "FIXED" then
 		for _, child in ipairs(self.children) do
 			child.finalPos[x] = child.pos[x] + child.offsetPos[x]
 		end
@@ -1188,6 +1217,15 @@ function Box:_solveLayout(isY)
 				local m = child:getMargin()
 				child.finalPos[x] = cursor + m[x] + child.offsetPos[x]
 				cursor = cursor + child.finalSize[x] + m[x] + m[z] + self.childGap
+			end
+		end
+	elseif self.layout == (isY and "VERTICAL_REVERSED" or "HORIZONTAL_REVERSED") then
+		local cursor = self.finalSize[x] - padding[z]
+		for _, child in ipairs(self.children) do
+			if child.visible then
+				local m = child:getMargin()
+				child.finalPos[x] = cursor - m[z] - child.finalSize[x] + child.offsetPos[x]
+				cursor = cursor - child.finalSize[x] - m[x] - m[z] - self.childGap
 			end
 		end
 	else
