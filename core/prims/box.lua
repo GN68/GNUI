@@ -90,6 +90,7 @@ local BoxAPI = {}
 ---@field children GNUI.Box[]
 ---@field namedChildren table<string,GNUI.Box>
 ---@field childAlign Vector2
+---@field growDirection Vector2
 ---@field scroll Vector2
 ---
 ---@field visible boolean
@@ -189,6 +190,7 @@ function BoxAPI.new(canvas)
 		children = {},
 		namedChildren = {},
 		childAlign = vec(-1, -1),
+		growDirection = vec(1, 1),
 
 		visible = true,
 		color = vec(1, 1, 1),
@@ -520,6 +522,27 @@ function Box:setChildAlign(h, v)
 	self.childAlign = gncommon.vec2(h, v)
 	self:update("dim")
 	return self
+end
+
+---@overload fun(self: GNUI.Box, hv: Vector2): GNUI.Box
+---@param h number?
+---@param v number?
+---@generic self
+---@param self self
+---@return self
+function Box:setGrowDirection(h, v)
+	---@cast self GNUI.Box
+	local newDir = gncommon.vec2(h, v, self.growDirection)
+	if newDir ~= self.growDirection then
+		self.growDirection = newDir
+		self:update("pos")
+	end
+	return self
+end
+
+---@return Vector2
+function Box:getGrowDirection()
+	return self.growDirection
 end
 
 ---@generic self
@@ -1021,23 +1044,19 @@ function Box:forceUpdate()
 		self:_solveFill(false)
 		self:_solveFit(true)
 		self:_solveFill(true)
+		self:_solveLayout(false)
+		self:_solveLayout(true)
 	end
 
 	if doPos then
 		if self.parent and self.parent.layout == "FIXED" then
-			self.finalPos.y = self.pos.y
-			self.finalPos.x = self.pos.x
+			local growX = math.max(0, self.finalSize.x - self.minSize.x) * (self.growDirection.x - 1) * 0.5
+			local growY = math.max(0, self.finalSize.y - self.minSize.y) * (self.growDirection.y - 1) * 0.5
+			self.finalPos.x = self.pos.x + self.offsetPos.x + growX
+			self.finalPos.y = self.pos.y + self.offsetPos.y + growY
 		end
 		local parentAbs = (self.parent and self.parent.absPos) or vec(0, 0)
 		self:_calcAbsPos(parentAbs)
-	end
-	
-	if doDim then
-		-- _solveLayout only runs for dim updates.
-		-- Flow layout positions are DERIVED FROM SIZES.
-		-- If sizes didn't change, no relative positions changed either.
-		self:_solveLayout(false)
-		self:_solveLayout(true)
 	end
 	
 	if doDim or doVisual then
@@ -1235,7 +1254,8 @@ function Box:_solveLayout(isY)
 		end
 	elseif self.layout == "FIXED" then
 		for _, child in ipairs(self.children) do
-			child.finalPos[x] = child.pos[x] + child.offsetPos[x]
+			local growOffset = math.max(0, child.finalSize[x] - child.minSize[x]) * (child.growDirection[x] - 1) * 0.5
+			child.finalPos[x] = child.pos[x] + child.offsetPos[x] + growOffset
 		end
 	elseif self.layout == (isY and "VERTICAL" or "HORIZONTAL") then
 		local cursor = padding[x]
