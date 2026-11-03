@@ -119,9 +119,11 @@ function Slider:processSlider(offset, original)
 	local knobLength = getKnobLength(self)
 	local lastValue = self.value
 	if self.isVertical then
-		self.value = original + math.map(offset.y, 0, self.finalSize.y - knobLength, self.min, self.max)
+		local track = self.finalSize.y - knobLength
+		self.value = track > 0 and (original + math.map(offset.y, 0, track, 0, self.max - self.min)) or self.min
 	else
-		self.value = original + math.map(offset.x, 0, self.finalSize.x - knobLength, self.min, self.max)
+		local track = self.finalSize.x - knobLength
+		self.value = track > 0 and (original + math.map(offset.x, 0, track, 0, self.max - self.min)) or self.min
 	end
 	self.value = math.clamp(self.value, self.min, self.max)
 	self.value = snap(self.value, self.step)
@@ -134,8 +136,8 @@ end
 function Slider:updateKnob()
 	local knobLength = getKnobLength(self)
 	---@cast knobLength number
-	self.sizing[self.isVertical and "x" or "y"] = "FIT"
 	local padding = self:getPadding()
+	local hasRange = self.max > self.min
 	self.boxKnob
 		 :setSize(
 			 self.isVertical and (self.finalSize.x - padding.x - padding.z) or knobLength,
@@ -143,21 +145,23 @@ function Slider:updateKnob()
 		 )
 		 :setPos(
 			 not self.isVertical and
-			 math.map(
+			 (hasRange and math.map(
 				self.value, 
 				self.min, self.max, 
 				padding.x,
 				self.finalSize.x - knobLength - padding.z
-			) or padding.x,
+			) or padding.x) or padding.x,
 			 self.isVertical and
-			 math.map(
+			 (hasRange and math.map(
 				self.value,
 				self.min,
 				self.max,
 				-padding.y,
 				self.finalSize.y - knobLength
-			) or -padding.y
+			) or -padding.y) or -padding.y
 		 )
+	self.boxKnob.finalSize = self.boxKnob.size:copy()
+	self.boxKnob.finalPos = self.boxKnob.pos:copy()
 end
 
 function Slider:_recalculateValue()
@@ -172,7 +176,8 @@ end
 function Slider:setVertical(vertical)
 	---@cast self GNUI.Widget.Slider
 	self.isVertical = vertical
-	self.sizing[vertical and "x" or "y"] = "FIXED"
+	self.sizing[vertical and "x" or "y"] = "FIT"
+	self.sizing[vertical and "y" or "x"] = "FILL"
 	self:update()
 	return self
 end
@@ -422,7 +427,16 @@ function SliderAPI.parse(layout, canvas, children, button)
 
 	local isVertical = layout.isVertical
 	self:setVertical(isVertical) 
-	self:setSizing(isVertical and "FIT" or "FILL", isVertical and "FILL" or "FIT")
+	if layout.sizing then
+		if type(layout.sizing) == "string" then
+			---@diagnostic disable-next-line: param-type-mismatch
+			self:setSizing(layout.sizing, layout.sizing)
+		else
+			self:setSizing(layout.sizing[1], layout.sizing[2])
+		end
+	else
+		self:setSizing(isVertical and "FIT" or "FILL", isVertical and "FILL" or "FIT")
+	end
 	if layout.value then self.value = layout.value end
 	if layout.min then self:setMin(layout.min) end
 	if layout.max then self:setMax(layout.max) end
@@ -435,3 +449,5 @@ function SliderAPI.parse(layout, canvas, children, button)
 end
 
 Layout.registerType("slider", SliderAPI.parse)
+
+return SliderAPI

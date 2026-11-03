@@ -39,6 +39,7 @@ setmetatable(BoxAPI, {
 ---@field layout GNUI.Box.LayoutMode?
 ---@field childAlign Vector2?
 ---@field growDirection Vector2?
+---@field childrenOffset Vector2?
 ---@field text string|table?
 ---@field textAlign {[1]:(-1|0|1),[2]:(-1|0|1)}?
 ---@field margin Vector4?
@@ -87,6 +88,7 @@ function BoxAPI.parse(layout, canvas, children, extraParser)
 	end
 	if layout.childAlign then box:setChildAlign(layout.childAlign) end
 	if layout.growDirection then box:setGrowDirection(layout.growDirection) end
+	if layout.childrenOffset then box:setChildrenOffset(layout.childrenOffset) end
 	
 	
 	

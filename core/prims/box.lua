@@ -91,6 +91,7 @@ local BoxAPI = {}
 ---@field namedChildren table<string,GNUI.Box>
 ---@field childAlign Vector2
 ---@field growDirection Vector2
+---@field childrenOffset Vector2
 ---@field scroll Vector2
 ---
 ---@field visible boolean
@@ -192,6 +193,7 @@ function BoxAPI.new(canvas)
 		namedChildren = {},
 		childAlign = vec(-1, -1),
 		growDirection = vec(1, 1),
+		childrenOffset = vec(0, 0),
 
 		visible = true,
 		color = vec(1, 1, 1),
@@ -573,6 +575,28 @@ end
 ---@return Vector2
 function Box:getGrowDirection()
 	return self.growDirection
+end
+
+---Sets the offset applied to all children of the box
+---@overload fun(self: GNUI.Box, offset: Vector2): GNUI.Box
+---@param x number?
+---@param y number?
+---@generic self
+---@param self self
+---@return self
+function Box:setChildrenOffset(x, y)
+	---@cast self GNUI.Box
+	local newOffset = gncommon.vec2(x, y)
+	if newOffset ~= self.childrenOffset then
+		self.childrenOffset = newOffset
+		self:update("pos")
+	end
+	return self
+end
+
+---@return Vector2
+function Box:getChildrenOffset()
+	return self.childrenOffset
 end
 
 ---@generic self
@@ -987,6 +1011,9 @@ local function findUpdateRoot(box, hasDim)
 	local root = box
 	local p = box.parent
 	while p do
+		if p.layout ~= "FIXED" or p.__type == "Container" then
+			root = p
+		end
 		if (p.sizing.x == "FIXED" and p.sizing.y == "FIXED") then
 			break
 		end
@@ -1063,11 +1090,40 @@ end
 ---@generic self
 ---@param self self
 ---@return self
+---@param box GNUI.Box
+---@param clearDim boolean
+local function clearSubtreeQueue(box, clearDim)
+	if clearDim or not box.pendingDim then
+		if box.flaggedUpdate and box.canvas then
+			box.canvas.queueUpdate[box.flaggedUpdate] = nil
+		end
+		box.flaggedUpdate = false
+		box.pendingDim    = false
+		box.pendingPos    = false
+		box.pendingVisual = false
+	end
+	for _, child in ipairs(box.children) do
+		clearSubtreeQueue(child, clearDim)
+	end
+end
+
 function Box:forceUpdate()
 	---@cast self GNUI.Box
 	local doDim    = self.pendingDim
 	local doPos    = self.pendingPos or doDim
 	local doVisual = self.pendingVisual
+
+	if doDim or doPos then
+		clearSubtreeQueue(self, doDim)
+	else
+		if self.flaggedUpdate and self.canvas then
+			self.canvas.queueUpdate[self.flaggedUpdate] = nil
+		end
+		self.flaggedUpdate = false
+		self.pendingDim    = false
+		self.pendingPos    = false
+		self.pendingVisual = false
+	end
 	
 	
 	if doDim then
@@ -1076,18 +1132,18 @@ function Box:forceUpdate()
 		self:_solveFill(false)
 		self:_solveFit(true)
 		self:_solveFill(true)
-		self:_solveLayout(false)
-		self:_solveLayout(true)
 	end
 
 	if doPos then
+		self:_solveLayout(false)
+		self:_solveLayout(true)
 		if self.parent and self.parent.layout == "FIXED" then
 			local minX = self.minSize and self.minSize.x or 0
 			local minY = self.minSize and self.minSize.y or 0
 			local growX = math.max(0, self.finalSize.x - minX) * (self.growDirection.x - 1) * 0.5
 			local growY = math.max(0, self.finalSize.y - minY) * (self.growDirection.y - 1) * 0.5
-			self.finalPos.x = self.pos.x + self.offsetPos.x + growX
-			self.finalPos.y = self.pos.y + self.offsetPos.y + growY
+			self.finalPos.x = self.pos.x + self.offsetPos.x + self.parent.childrenOffset.x + growX
+			self.finalPos.y = self.pos.y + self.offsetPos.y + self.parent.childrenOffset.y + growY
 		end
 		local parentAbs = (self.parent and self.parent.absPos) or vec(0, 0)
 		self:_calcAbsPos(parentAbs)
@@ -1096,19 +1152,13 @@ function Box:forceUpdate()
 	if doDim or doVisual then
 		self:_updateSprites()
 	elseif doPos then
-		if self.canvas then
-			self.canvas.display:setPos(self.visualID, self.finalPos.x, self.finalPos.y)
-		end
+		self:_updatePos()
 	end
 
 	
-	if doDim then
+	if doPos then
 		self:calculateBounds()
 	end
-	self.flaggedUpdate = false
-	self.pendingDim    = false
-	self.pendingPos    = false
-	self.pendingVisual = false
 	return self
 end
 
@@ -1280,7 +1330,7 @@ function Box:_solveLayout(isY)
 					padding[x] + m[x],
 					self.finalSize[x] - child.finalSize[x] - padding[z] - m[z],
 					self.childAlign[x] * 0.5 + 0.5)
-					+ child.offsetPos[x]
+					+ child.offsetPos[x] + self.childrenOffset[x]
 			end
 		end
 		if isY and self.layout.pos then
@@ -1290,14 +1340,14 @@ function Box:_solveLayout(isY)
 		for _, child in ipairs(self.children) do
 			local minVal = child.minSize and child.minSize[x] or 0
 			local growOffset = math.max(0, child.finalSize[x] - minVal) * (child.growDirection[x] - 1) * 0.5
-			child.finalPos[x] = child.pos[x] + child.offsetPos[x] + growOffset
+			child.finalPos[x] = child.pos[x] + child.offsetPos[x] + self.childrenOffset[x] + growOffset
 		end
 	elseif self.layout == (isY and "VERTICAL" or "HORIZONTAL") then
 		local cursor = padding[x]
 		for _, child in ipairs(self.children) do
 			if child.visible then
 				local m = child:getMargin()
-				child.finalPos[x] = cursor + m[x] + child.offsetPos[x]
+				child.finalPos[x] = cursor + m[x] + child.offsetPos[x] + self.childrenOffset[x]
 				cursor = cursor + child.finalSize[x] + m[x] + m[z] + self.finalChildGap
 			end
 		end
@@ -1306,7 +1356,7 @@ function Box:_solveLayout(isY)
 		for _, child in ipairs(self.children) do
 			if child.visible then
 				local m = child:getMargin()
-				child.finalPos[x] = cursor - m[z] - child.finalSize[x] + child.offsetPos[x]
+				child.finalPos[x] = cursor - m[z] - child.finalSize[x] + child.offsetPos[x] + self.childrenOffset[x]
 				cursor = cursor - child.finalSize[x] - m[x] - m[z] - self.finalChildGap
 			end
 		end
@@ -1332,8 +1382,8 @@ function Box:_solveLayout(isY)
 						cursorC = cursorC + lineMaxCross + self.finalChildGap
 						lineMaxCross = 0
 					end
-					child.finalPos[p] = cursorP + m[p] + child.offsetPos[p]
-					child.finalPos[c] = cursorC + m[c] + child.offsetPos[c]
+					child.finalPos[p] = cursorP + m[p] + child.offsetPos[p] + self.childrenOffset[p]
+					child.finalPos[c] = cursorC + m[c] + child.offsetPos[c] + self.childrenOffset[c]
 					cursorP = cursorP + childP + self.finalChildGap
 					lineMaxCross = math.max(lineMaxCross, childC)
 					hasItem = true
@@ -1348,7 +1398,7 @@ function Box:_solveLayout(isY)
 				padding[x] + m[x],
 					self.finalSize[x] - child.finalSize[x] - padding[z] - m[z],
 					self.childAlign[x] * 0.5 + 0.5)
-					+ child.offsetPos[x]
+					+ child.offsetPos[x] + self.childrenOffset[x]
 			end
 		end
 	end
@@ -1375,6 +1425,12 @@ function Box:_calcAbsPos(parentAbs)
 	end
 
 	for _, child in ipairs(self.children) do child:_calcAbsPos(self.absPos) end
+end
+
+function Box:_updatePos()
+	if not self.canvas then return end
+	self.canvas.display:setPos(self.visualID, self.finalPos.x, self.finalPos.y)
+	for _, child in ipairs(self.children) do child:_updatePos() end
 end
 
 function Box:_updateSprites()

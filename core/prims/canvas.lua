@@ -100,8 +100,8 @@ end
 function Canvas:flushUpdates()
 	self.FLUSH_UPDATES:invoke()
 	for key, box in pairs(self.queueUpdate) do
-		box:forceUpdate()
 		self.queueUpdate[key] = nil
+		box:forceUpdate()
 	end
 	for index, value in ipairs(self.nextFrameCallbacks) do
 		value()
