@@ -28,6 +28,8 @@ local gncommon = require(cfg.GN_COMMON) ---@type GNCommon
 ---@field layer number
 ---@field size Vector2
 ---@field minSize Vector2
+---@field crop Vector4
+---@field textVisible boolean
 ---
 ---@field display GNUI.Render.Display
 ---@field taskID integer # Task ID
@@ -46,6 +48,8 @@ function Sprite.new(box, layer)
 		pos = vec(0, 0),
 		size = vec(0, 0),
 		padding = vec(0, 0, 0, 0),
+		crop = vec(0, 0, 0, 0),
+		textVisible = true,
 		layer = layer,
 
 		minSize = vec(0,0),
@@ -109,7 +113,7 @@ function Sprite:setPos(x, y)
 		if self.pos == pos then return end
 		self.pos = pos - expand
 	end
-	self.display:setPos(self.box.visualID, self.pos.x, self.pos.y)
+	self.display:setSpritePos(self.box.visualID, self.taskID, self.pos.x, self.pos.y, self.layer)
 end
 
 
@@ -120,12 +124,47 @@ function Sprite:setSize(x, y)
 	---@cast self GNUI.Sprite
 	if x then
 		local size = vec(x, y)
-		if self.style then size = size + self.style.expand.xy end
+		if self.style then size = size + self.style.expand.xy + self.style.expand.zw end
 
 		if size == self.size then return end
 		self.size = size
 	end
 	self.display:setSpriteSize(self.box.visualID, self.taskID, self.size.x, self.size.y)
+	return self
+end
+
+---@overload fun(self: GNUI.Sprite)
+---@overload fun(self: GNUI.Sprite, crop: Vector4): GNUI.Sprite
+---@param l number?
+---@param t number?
+---@param r number?
+---@param b number?
+---@return GNUI.Sprite
+function Sprite:setCrop(l, t, r, b)
+	---@cast self GNUI.Sprite
+	if l then
+		if t then
+			if self.crop.x == l and self.crop.y == t and self.crop.z == r and self.crop.w == b then
+				return self
+			end
+			self.crop = vec(l, t, r, b)
+		else
+			local crop = gncommon.vec4(l, t, r, b)
+			if self.crop == crop then return self end
+			self.crop = crop
+		end
+	end
+	self.display:setSpriteCrop(self.box.visualID, self.taskID, self.crop.x, self.crop.y, self.crop.z, self.crop.w)
+	return self
+end
+
+---@param visible boolean
+function Sprite:setTextVisible(visible)
+	if self.textVisible == visible then return self end
+	self.textVisible = visible
+	if self.labelID then
+		self.display:setLabelVisible(self.box.visualID, self.labelID, visible)
+	end
 	return self
 end
 
@@ -231,6 +270,20 @@ function Sprite:setStyle(style)
 		if self.style == style then return end
 		self.style = style
 	end
+	if self.box and self.box.clipDist then
+		local dist = self.box.clipDist
+		local expand = self.style and self.style.expand
+		if expand then
+			self.crop = vec(
+				math.max(0, dist.x + expand.x),
+				math.max(0, dist.y + expand.y),
+				math.max(0, dist.z + expand.z),
+				math.max(0, dist.w + expand.w)
+			)
+		else
+			self.crop = self.box.crop:copy()
+		end
+	end
 	self:applyAll(style)
 	if self.box then
 		self.box:recalculateMargin()
@@ -248,6 +301,7 @@ function Sprite:applyAll(style)
 	style = style or self.style
 	self:setPos()
 	self:setSize()
+	self:setCrop()
 	self:setText()
 	local pad = (self.box and self.box.padding) or (style and style.padding) or self.padding
 	self:setPadding(pad.x, pad.y, pad.z, pad.w)

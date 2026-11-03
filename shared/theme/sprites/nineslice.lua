@@ -15,7 +15,8 @@ local Sprite = require(BASE..".shared.theme.sprites.sprite") ---@type GNUI.Sprit
 local Quad = require(BASE..".shared.theme.sprites.quad") ---@type GNUI.Sprite.Quad
 
 ---@class GNUI.Sprite.Nineslice : GNUI.Sprite.Quad
----@field style GNUI.Sprite.Nineslice.Style 
+---@field style GNUI.Sprite.Nineslice.Style
+---@field crop Vector4 
 ---
 ---@field idTopLeft integer
 ---@field idTop integer
@@ -144,6 +145,77 @@ function Nineslice:applyDimensions()
 	self.display:setSpritePos(id,self.idBottomLeft,  pos.x, pos.y+size.y-border.w,l)
 	self.display:setSpritePos(id,self.idBottom,      pos.x+border.x,pos.y+size.y-border.w,l)
 	self.display:setSpritePos(id,self.idBottomRight, pos.x+size.x-border.z,pos.y+size.y-border.w,l)
+	self:applyCrop()
+end
+
+---@overload fun(self: GNUI.Sprite.Nineslice)
+---@overload fun(self: GNUI.Sprite.Nineslice, crop: Vector4): GNUI.Sprite.Nineslice
+---@param l number?
+---@param t number?
+---@param r number?
+---@param b number?
+---@return GNUI.Sprite.Nineslice
+function Nineslice:setCrop(l, t, r, b)
+	if l then
+		if t then
+			if self.crop.x == l and self.crop.y == t and self.crop.z == r and self.crop.w == b then
+				return self
+			end
+			self.crop = vec(l, t, r, b)
+		else
+			local crop = gncommon.vec4(l, t, r, b)
+			if self.crop == crop then return self end
+			self.crop = crop
+		end
+	end
+	self:applyCrop()
+	return self
+end
+
+function Nineslice:applyCrop()
+	local border = self.style and self.style.border or vec(0, 0, 0, 0)
+	local expand = self.style and self.style.expand or vec(0, 0, 0, 0)
+	local size = self.size + expand.xy + expand.zw
+	local crop = self.crop
+
+	local w1 = border.x
+	local w2 = math.max(0, size.x - border.x - border.z)
+	local w3 = border.z
+
+	local h1 = border.y
+	local h2 = math.max(0, size.y - border.y - border.w)
+	local h3 = border.w
+
+	local cL1 = math.clamp(crop.x, 0, w1)
+	local cR1 = math.clamp(crop.z - (w2 + w3), 0, w1 - cL1)
+
+	local cL2 = math.clamp(crop.x - w1, 0, w2)
+	local cR2 = math.clamp(crop.z - w3, 0, w2 - cL2)
+
+	local cL3 = math.clamp(crop.x - (w1 + w2), 0, w3)
+	local cR3 = math.clamp(crop.z, 0, w3 - cL3)
+
+	local cT1 = math.clamp(crop.y, 0, h1)
+	local cB1 = math.clamp(crop.w - (h2 + h3), 0, h1 - cT1)
+
+	local cT2 = math.clamp(crop.y - h1, 0, h2)
+	local cB2 = math.clamp(crop.w - h3, 0, h2 - cT2)
+
+	local cT3 = math.clamp(crop.y - (h1 + h2), 0, h3)
+	local cB3 = math.clamp(crop.w, 0, h3 - cT3)
+
+	local id = self.box.visualID
+	self.display:setSpriteCrop(id, self.idTopLeft,     cL1, cT1, cR1, cB1)
+	self.display:setSpriteCrop(id, self.idTop,         cL2, cT1, cR2, cB1)
+	self.display:setSpriteCrop(id, self.idTopRight,    cL3, cT1, cR3, cB1)
+
+	self.display:setSpriteCrop(id, self.idLeft,        cL1, cT2, cR1, cB2)
+	self.display:setSpriteCrop(id, self.idCenter,      cL2, cT2, cR2, cB2)
+	self.display:setSpriteCrop(id, self.idRight,       cL3, cT2, cR3, cB2)
+
+	self.display:setSpriteCrop(id, self.idBottomLeft,  cL1, cT3, cR1, cB3)
+	self.display:setSpriteCrop(id, self.idBottom,      cL2, cT3, cR2, cB3)
+	self.display:setSpriteCrop(id, self.idBottomRight, cL3, cT3, cR3, cB3)
 end
 
 ---@overload fun(self: GNUI.Sprite.Nineslice)

@@ -107,6 +107,7 @@ function Quad:applyAll(style)
 	self:setText()
 	self:setPos()
 	self:setSize()
+	self:setCrop()
 	local pad = (self.box and self.box.padding) or (style and style.padding) or self.padding
 	self:setPadding(pad.x, pad.y, pad.z, pad.w)
 	
