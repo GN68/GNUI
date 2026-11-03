@@ -130,10 +130,17 @@ function ContainerAPI.new(box, canvas, children)
 		self:setChildrenOffset(-value, self.childrenOffset.y)
 	end, "__container_hscroll")
 
+	local isShiftPressed = false
+	self.KEY_INPUT:register(function (scancode, state)
+		if scancode == 340 then -- shift
+			isShiftPressed = (state == 1)
+		end
+	end)
+	
 	self.UNHANDLED_SCROLL_INPUT:register(function(y, x)
 		local dir = (y ~= 0) and y or x
 		if dir ~= 0 then
-			if self.scrollBarV and self.scrollBarV.visible then
+			if self.scrollBarV and self.scrollBarV.visible and not isShiftPressed then
 				local newVal = math.clamp(self.scrollBarV.value - dir * self.scrollSpeed, self.scrollBarV.min, self.scrollBarV.max)
 				if newVal ~= self.scrollBarV.value then
 					self.scrollBarV:setValue(newVal)
