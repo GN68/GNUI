@@ -87,6 +87,7 @@ function ContainerAPI.new(box, canvas, children)
 	self.contentBounds = vec(0, 0, 0, 0)
 	self.scrollSpeed = 15
 	self.scrollBarThickness = nil
+	self.clipChildren = true
 
 	if children then
 		for _, child in ipairs(children) do
@@ -311,6 +312,7 @@ function Container:_updateScrollBars()
 		vBar.value = math.clamp(-self.childrenOffset.y, vBar.min, vBar.max)
 		vBar:updateKnob()
 	else
+		vBar.finalPos = vec(0, 0)
 		vBar.finalSize = vec(0, 0)
 	end
 
@@ -338,6 +340,7 @@ function Container:_updateScrollBars()
 		hBar.value = math.clamp(-self.childrenOffset.x, hBar.min, hBar.max)
 		hBar:updateKnob()
 	else
+		hBar.finalPos = vec(0, 0)
 		hBar.finalSize = vec(0, 0)
 	end
 

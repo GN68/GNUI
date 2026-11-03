@@ -92,6 +92,13 @@ local BoxAPI = {}
 ---@field childAlign Vector2
 ---@field growDirection Vector2
 ---@field childrenOffset Vector2
+---@field clipChildren boolean
+---@field isClipped boolean
+---@field clipHidden boolean
+---@field pendingClippedSprites boolean
+---@field crop Vector4
+---@field clipDist Vector4
+---@field isTouchOrCrop boolean
 ---@field scroll Vector2
 ---
 ---@field visible boolean
@@ -194,6 +201,13 @@ function BoxAPI.new(canvas)
 		childAlign = vec(-1, -1),
 		growDirection = vec(1, 1),
 		childrenOffset = vec(0, 0),
+		clipChildren = false,
+		isClipped = false,
+		clipHidden = false,
+		pendingClippedSprites = false,
+		crop = vec(0, 0, 0, 0),
+		clipDist = vec(-math.huge, -math.huge, -math.huge, -math.huge),
+		isTouchOrCrop = false,
 
 		visible = true,
 		color = vec(1, 1, 1),
@@ -599,6 +613,26 @@ function Box:getChildrenOffset()
 	return self.childrenOffset
 end
 
+---Sets whether children completely out of bounds of this box stop rendering/updating,
+---and restricts child input hit-testing to within this box's bounds.
+---@param clip boolean
+---@generic self
+---@param self self
+---@return self
+function Box:setClipChildren(clip)
+	---@cast self GNUI.Box
+	if self.clipChildren ~= clip then
+		self.clipChildren = clip
+		self:update("pos")
+	end
+	return self
+end
+
+---@return boolean
+function Box:getClipChildren()
+	return self.clipChildren
+end
+
 ---@generic self
 ---@param self self
 ---@return self
@@ -971,11 +1005,15 @@ local function calculateBounds(self)
 	local size = self.finalSize
 	local finalBounds = vec(0, 0, size.x, size.y)
 	for index, value in ipairs(self.children) do
-		local childBounds = calculateBounds(value)
-		finalBounds.x = math.min(finalBounds.x, childBounds.x)
-		finalBounds.y = math.min(finalBounds.y, childBounds.y)
-		finalBounds.z = math.max(finalBounds.z, childBounds.z)
-		finalBounds.w = math.max(finalBounds.w, childBounds.w)
+		if not value.isClipped then
+			local childBounds = calculateBounds(value)
+			if not self.clipChildren then
+				finalBounds.x = math.min(finalBounds.x, childBounds.x)
+				finalBounds.y = math.min(finalBounds.y, childBounds.y)
+				finalBounds.z = math.max(finalBounds.z, childBounds.z)
+				finalBounds.w = math.max(finalBounds.w, childBounds.w)
+			end
+		end
 	end
 	self.bounds = finalBounds
 	---@diagnostic disable-next-line: return-type-mismatch
@@ -1107,6 +1145,29 @@ local function clearSubtreeQueue(box, clearDim)
 	end
 end
 
+---@param box GNUI.Box
+---@return number, number, number, number
+local function getAncestorClipBounds(box)
+	local clipX1, clipY1 = -math.huge, -math.huge
+	local clipX2, clipY2 = math.huge, math.huge
+	local p = box.parent
+	while p do
+		if p.isClipped then
+			return math.huge, math.huge, -math.huge, -math.huge
+		end
+		if p.clipChildren then
+			local px1, py1 = p.absPos.x, p.absPos.y
+			local px2, py2 = px1 + p.finalSize.x, py1 + p.finalSize.y
+			if px1 > clipX1 then clipX1 = px1 end
+			if py1 > clipY1 then clipY1 = py1 end
+			if px2 < clipX2 then clipX2 = px2 end
+			if py2 < clipY2 then clipY2 = py2 end
+		end
+		p = p.parent
+	end
+	return clipX1, clipY1, clipX2, clipY2
+end
+
 function Box:forceUpdate()
 	---@cast self GNUI.Box
 	local doDim    = self.pendingDim
@@ -1146,10 +1207,22 @@ function Box:forceUpdate()
 			self.finalPos.y = self.pos.y + self.offsetPos.y + self.parent.childrenOffset.y + growY
 		end
 		local parentAbs = (self.parent and self.parent.absPos) or vec(0, 0)
-		self:_calcAbsPos(parentAbs)
+		local clipX1, clipY1, clipX2, clipY2 = getAncestorClipBounds(self)
+		self:_calcAbsPos(parentAbs, clipX1, clipY1, clipX2, clipY2)
 	end
 	
 	if doDim or doVisual then
+		if not doPos then
+			local p = self
+			while p do
+				if p.isClipped then
+					p.pendingClippedSprites = true
+					self.pendingClippedSprites = true
+					return self
+				end
+				p = p.parent
+			end
+		end
 		self:_updateSprites()
 	elseif doPos then
 		self:_updatePos()
@@ -1407,9 +1480,23 @@ end
 
 
 ---@param parentAbs Vector2   absolute screen position of the parent
-function Box:_calcAbsPos(parentAbs)
+---@param clipX1 number?
+---@param clipY1 number?
+---@param clipX2 number?
+---@param clipY2 number?
+function Box:_calcAbsPos(parentAbs, clipX1, clipY1, clipX2, clipY2)
+	clipX1 = clipX1 or -math.huge
+	clipY1 = clipY1 or -math.huge
+	clipX2 = clipX2 or math.huge
+	clipY2 = clipY2 or math.huge
+
 	local newX = parentAbs.x + self.finalPos.x
 	local newY = parentAbs.y + self.finalPos.y
+	local x2 = newX + self.finalSize.x
+	local y2 = newY + self.finalSize.y
+
+	local clipped = (x2 < clipX1) or (newX > clipX2) or (y2 < clipY1) or (newY > clipY2)
+	self.isClipped = clipped
 
 	if self.finalSize.x ~= self.prevFinalSize.x or self.finalSize.y ~=
 		 self.prevFinalSize.y then
@@ -1424,18 +1511,88 @@ function Box:_calcAbsPos(parentAbs)
 		self.POSITION_CHANGED:invoke(self.absPos:copy())
 	end
 
-	for _, child in ipairs(self.children) do child:_calcAbsPos(self.absPos) end
+	if clipped then
+		return
+	end
+
+	local distL = clipX1 - newX
+	local distT = clipY1 - newY
+	local distR = x2 - clipX2
+	local distB = y2 - clipY2
+	self.clipDist.x = distL
+	self.clipDist.y = distT
+	self.clipDist.z = distR
+	self.clipDist.w = distB
+	self.crop.x = math.max(0, distL)
+	self.crop.y = math.max(0, distT)
+	self.crop.z = math.max(0, distR)
+	self.crop.w = math.max(0, distB)
+	self.isTouchOrCrop = (distL >= 0) or (distT >= 0) or (distR >= 0) or (distB >= 0)
+
+	local cX1, cY1, cX2, cY2 = clipX1, clipY1, clipX2, clipY2
+	if self.clipChildren then
+		if newX > cX1 then cX1 = newX end
+		if newY > cY1 then cY1 = newY end
+		if x2 < cX2 then cX2 = x2 end
+		if y2 < cY2 then cY2 = y2 end
+	end
+
+	for _, child in ipairs(self.children) do
+		child:_calcAbsPos(self.absPos, cX1, cY1, cX2, cY2)
+	end
 end
 
 function Box:_updatePos()
 	if not self.canvas then return end
+	if self.isClipped then
+		if not self.clipHidden then
+			self.canvas.display:setVisible(self.visualID, false)
+			self.clipHidden = true
+		end
+		return
+	end
+	if self.pendingClippedSprites then
+		self:_updateSprites()
+		return
+	end
+	if self.clipHidden then
+		self.canvas.display:setVisible(self.visualID, self.visible)
+		self.clipHidden = false
+	end
 	self.canvas.display:setPos(self.visualID, self.finalPos.x, self.finalPos.y)
+	local c = self.crop
+	local dist = self.clipDist
+	local textVis = not self.isTouchOrCrop
+	for _, sprite in pairs(self.sprites) do
+		local expand = sprite.style and sprite.style.expand
+		if expand then
+			sprite:setCrop(
+				math.max(0, dist.x + expand.x),
+				math.max(0, dist.y + expand.y),
+				math.max(0, dist.z + expand.z),
+				math.max(0, dist.w + expand.w)
+			)
+		else
+			sprite:setCrop(c.x, c.y, c.z, c.w)
+		end
+		sprite:setTextVisible(textVis)
+	end
 	for _, child in ipairs(self.children) do child:_updatePos() end
 end
 
 function Box:_updateSprites()
 	if not self.canvas then return end
 	local d = self.canvas.display
+	if self.isClipped then
+		if not self.clipHidden then
+			d:setVisible(self.visualID, false)
+			self.clipHidden = true
+		end
+		self.pendingClippedSprites = true
+		return
+	end
+	self.clipHidden = false
+	self.pendingClippedSprites = false
 
 	-- TODO: split to only update ones that are requireed
 	d:setPos(self.visualID, self.finalPos.x, self.finalPos.y)
@@ -1448,8 +1605,23 @@ function Box:_updateSprites()
 
 	
 	self:_updateTexts()
+	local c = self.crop
+	local dist = self.clipDist
+	local textVis = not self.isTouchOrCrop
 	for _, sprite in pairs(self.sprites) do
 		sprite:setSize(self.finalSize.x, self.finalSize.y)
+		local expand = sprite.style and sprite.style.expand
+		if expand then
+			sprite:setCrop(
+				math.max(0, dist.x + expand.x),
+				math.max(0, dist.y + expand.y),
+				math.max(0, dist.z + expand.z),
+				math.max(0, dist.w + expand.w)
+			)
+		else
+			sprite:setCrop(c.x, c.y, c.z, c.w)
+		end
+		sprite:setTextVisible(textVis)
 	end
 	for _, child in ipairs(self.children) do child:_updateSprites() end
 end

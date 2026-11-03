@@ -40,6 +40,7 @@ setmetatable(BoxAPI, {
 ---@field childAlign Vector2?
 ---@field growDirection Vector2?
 ---@field childrenOffset Vector2?
+---@field clipChildren boolean?
 ---@field text string|table?
 ---@field textAlign {[1]:(-1|0|1),[2]:(-1|0|1)}?
 ---@field margin Vector4?
@@ -126,6 +127,7 @@ function BoxAPI.parse(layout, canvas, children, extraParser)
 	if layout.gap then box:setChildGap(layout.gap) end
 	if type(layout.wrapText) == "boolean" then box:setWrapText(layout.wrapText) end
 	if type(layout.captureInput) == "boolean" then box:setCaptureInputs(layout.captureInput) end
+	if type(layout.clipChildren) == "boolean" then box:setClipChildren(layout.clipChildren) end
 	if layout.textOffset then box:setTextoffset(layout.textOffset.x,layout.textOffset.y) end
 	
 	
