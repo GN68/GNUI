@@ -162,10 +162,10 @@ function BoxAPI.new(canvas)
 		offsetPos = vec(0,0),
 		pos = vec(0, 0),
 		size = vec(-1, -1),
-		minSize = vec(0, 0),
+		minSize = nil,
 		maxSize = vec(math.huge, math.huge),
-		padding = vec(0, 0, 0, 0),
-		margin = vec(0, 0, 0, 0),
+		padding = nil,
+		margin = nil,
 
 		finalPos = vec(0, 0),
 		finalSize = vec(0, 0),
@@ -173,6 +173,7 @@ function BoxAPI.new(canvas)
 		finalMaxSize = vec(0, 0),
 		finalPadding = vec(0, 0, 0, 0),
 		finalMargin = vec(0, 0, 0, 0),
+		finalChildGap = 0,
 
 		bounds = vec(0, 0, 0, 0),
 
@@ -181,7 +182,7 @@ function BoxAPI.new(canvas)
 
 		sizing = { x = "FIXED", y = "FIXED" },
 
-		childGap = 0,
+		childGap = nil,
 
 		layout = "FIXED",
 
@@ -328,7 +329,7 @@ end
 ---@param bottom number
 function Box:setMargin(left, top, right, bottom)
 	---@cast self GNUI.Box
-	self.margin = gncommon.vec4(left, top, right, bottom)
+	self.margin = left and gncommon.vec4(left, top, right, bottom) or nil
 	self:recalculateMargin()
 	self:recalculateMinimumSize()
 	self:update("dim")
@@ -336,17 +337,21 @@ function Box:setMargin(left, top, right, bottom)
 end
 
 function Box:recalculateMargin()
-	local margin = self.margin:copy()
-	for key, sprite in pairs(self.sprites) do
-		if sprite.style then
-			local styleMargin = sprite.style.margin
-			margin.x = (abs(margin.x) <= abs(styleMargin.x)) and styleMargin.x or margin.x
-			margin.y = (abs(margin.y) <= abs(styleMargin.y)) and styleMargin.y or margin.y
-			margin.z = (abs(margin.z) <= abs(styleMargin.z)) and styleMargin.z or margin.z
-			margin.w = (abs(margin.w) <= abs(styleMargin.w)) and styleMargin.w or margin.w
+	if self.margin then
+		self.finalMargin = self.margin:copy()
+	else
+		local margin = vec(0, 0, 0, 0)
+		for key, sprite in pairs(self.sprites) do
+			if sprite.style and sprite.style.margin then
+				local styleMargin = sprite.style.margin
+				margin.x = (abs(margin.x) <= abs(styleMargin.x)) and styleMargin.x or margin.x
+				margin.y = (abs(margin.y) <= abs(styleMargin.y)) and styleMargin.y or margin.y
+				margin.z = (abs(margin.z) <= abs(styleMargin.z)) and styleMargin.z or margin.z
+				margin.w = (abs(margin.w) <= abs(styleMargin.w)) and styleMargin.w or margin.w
+			end
 		end
+		self.finalMargin = margin
 	end
-	self.finalMargin = margin
 end
 
 ---@return Vector4
@@ -363,16 +368,10 @@ function Box:getMargin() return self.finalMargin end
 ---@param bottom number
 function Box:setPadding(left, top, right, bottom)
 	---@cast self GNUI.Box
-	self.padding = gncommon.vec4(left, top, right, bottom)
+	self.padding = left and gncommon.vec4(left, top, right, bottom) or nil
 	self:recalculatePadding()
 	self:recalculateMinimumSize()
 	self:update("dim")
-	for key, value in pairs(self.sprites) do
-		if value.labelID then
-			self.canvas.display:setLabelPadding(self.visualID, value.labelID,
-				self.finalPadding:unpack())
-		end
-	end
 	return self
 end
 
@@ -380,17 +379,26 @@ end
 function Box:getPadding() return self.finalPadding end
 
 function Box:recalculatePadding()
-	local padding = self.padding:copy()
-	for key, sprite in pairs(self.sprites) do
-		if sprite.style then
-			local p = sprite.style.padding
-			padding.x = math.max(padding.x, p.x)
-			padding.y = math.max(padding.y, p.y)
-			padding.z = math.max(padding.z, p.z)
-			padding.w = math.max(padding.w, p.w)
+	if self.padding then
+		self.finalPadding = self.padding:copy()
+	else
+		local padding = vec(0, 0, 0, 0)
+		for key, sprite in pairs(self.sprites) do
+			if sprite.style and sprite.style.padding then
+				local p = sprite.style.padding
+				padding.x = math.max(padding.x, p.x)
+				padding.y = math.max(padding.y, p.y)
+				padding.z = math.max(padding.z, p.z)
+				padding.w = math.max(padding.w, p.w)
+			end
+		end
+		self.finalPadding = padding
+	end
+	for key, value in pairs(self.sprites) do
+		if value.labelID then
+			value:setPadding(self.finalPadding:unpack())
 		end
 	end
-	self.finalPadding = padding
 end
 
 ---@generic self
@@ -400,11 +408,27 @@ end
 function Box:setChildGap(gap)
 	---@cast self GNUI.Box
 	self.childGap = gap
+	self:recalculateChildGap()
+	self:update("dim")
 	return self
 end
 
+function Box:recalculateChildGap()
+	if self.childGap ~= nil then
+		self.finalChildGap = self.childGap
+	else
+		local gap = 0
+		for key, sprite in pairs(self.sprites) do
+			if sprite.style and sprite.style.childGap then
+				gap = sprite.style.childGap
+			end
+		end
+		self.finalChildGap = gap
+	end
+end
+
 ---@return number
-function Box:getChildGap() return self.childGap end
+function Box:getChildGap() return self.finalChildGap end
 
 ---Sets the size of the box
 ---NOTE: setting an axis to -1 will make it automatically fit that given axis.
@@ -432,7 +456,7 @@ end
 ---@return self
 function Box:setMinimumSize(x, y)
 	---@cast self GNUI.Box
-	self.minSize = gncommon.vec2(x, y)
+	self.minSize = (x or y) and gncommon.vec2(x, y, self.minSize or vec(0, 0)) or nil
 	self:recalculateMinimumSize()
 	self:update("dim")
 	return self
@@ -442,17 +466,21 @@ end
 function Box:getMinimumSize() return self.finalMinSize end
 
 function Box:recalculateMinimumSize()
-	local minSize = self.minSize:copy()
-	for key, sprite in pairs(self.sprites) do
-		if sprite.style then
-			local style = sprite.style
-			minSize.x = math.max(minSize.x, style.padding.x + style.padding.z,
-				style.minSize.x)
-			minSize.y = math.max(minSize.y, style.padding.y + style.padding.w,
-				style.minSize.y)
+	if self.minSize then
+		self.finalMinSize = self.minSize:copy()
+	else
+		local minSize = vec(0, 0)
+		for key, sprite in pairs(self.sprites) do
+			if sprite.style then
+				local style = sprite.style
+				minSize.x = math.max(minSize.x, self.finalPadding.x + self.finalPadding.z,
+					style.minSize.x)
+				minSize.y = math.max(minSize.y, self.finalPadding.y + self.finalPadding.w,
+					style.minSize.y)
+			end
 		end
+		self.finalMinSize = minSize
 	end
-	self.finalMinSize = minSize
 end
 
 ---@overload fun(self: GNUI.Box ,size : Vector2): GNUI.Box
@@ -554,9 +582,10 @@ function Box:setSprite(sprite, layer)
 	---@cast self GNUI.Box
 
 	sprite:setBox(self, layer)
+	self:recalculateMargin()
+	self:recalculatePadding()
+	self:recalculateChildGap()
 	self:recalculateMinimumSize()
-	self:setPadding(self.padding)
-	self:setMargin(self.margin)
 	self:update("dim")
 	return self
 end
@@ -578,6 +607,7 @@ function Box:setStyleVariant(variant)
 
 	self:recalculateMargin()
 	self:recalculatePadding()
+	self:recalculateChildGap()
 	self:recalculateMinimumSize()
 	self:update("dim")
 	return self
@@ -1050,8 +1080,10 @@ function Box:forceUpdate()
 
 	if doPos then
 		if self.parent and self.parent.layout == "FIXED" then
-			local growX = math.max(0, self.finalSize.x - self.minSize.x) * (self.growDirection.x - 1) * 0.5
-			local growY = math.max(0, self.finalSize.y - self.minSize.y) * (self.growDirection.y - 1) * 0.5
+			local minX = self.minSize and self.minSize.x or 0
+			local minY = self.minSize and self.minSize.y or 0
+			local growX = math.max(0, self.finalSize.x - minX) * (self.growDirection.x - 1) * 0.5
+			local growY = math.max(0, self.finalSize.y - minY) * (self.growDirection.y - 1) * 0.5
 			self.finalPos.x = self.pos.x + self.offsetPos.x + growX
 			self.finalPos.y = self.pos.y + self.offsetPos.y + growY
 		end
@@ -1122,7 +1154,7 @@ function Box:_solveFit(isY)
 				end
 			end
 			
-			inner = inner + self.childGap * math.max(visibleChildCount - 1, 0)
+			inner = inner + self.finalChildGap * math.max(visibleChildCount - 1, 0)
 		elseif crossWrap then
 			local p = isY and "x" or "y"
 			local pEnd = isY and "z" or "w"
@@ -1136,11 +1168,11 @@ function Box:_solveFit(isY)
 					local childP = child.finalSize[p] + m[p] + m[pEnd]
 					local childC = child.finalSize[x] + m[x] + m[z]
 					if hasItem and availPrimary > 0 and (cursorP + childP > availPrimary) then
-						inner = inner + lineMaxCross + self.childGap
+						inner = inner + lineMaxCross + self.finalChildGap
 						cursorP = 0
 						lineMaxCross = 0
 					end
-					cursorP = cursorP + childP + self.childGap
+					cursorP = cursorP + childP + self.finalChildGap
 					lineMaxCross = math.max(lineMaxCross, childC)
 					hasItem = true
 				end
@@ -1202,7 +1234,7 @@ function Box:_solveFill(isY)
 			end
 		end
 		
-		remaining = remaining - self.childGap * math.max(visibleChildCount - 1, 0)
+		remaining = remaining - self.finalChildGap * math.max(visibleChildCount - 1, 0)
 
 		if #fillers > 0 then
 			local share = math.max(0, remaining) / #fillers
@@ -1254,7 +1286,8 @@ function Box:_solveLayout(isY)
 		end
 	elseif self.layout == "FIXED" then
 		for _, child in ipairs(self.children) do
-			local growOffset = math.max(0, child.finalSize[x] - child.minSize[x]) * (child.growDirection[x] - 1) * 0.5
+			local minVal = child.minSize and child.minSize[x] or 0
+			local growOffset = math.max(0, child.finalSize[x] - minVal) * (child.growDirection[x] - 1) * 0.5
 			child.finalPos[x] = child.pos[x] + child.offsetPos[x] + growOffset
 		end
 	elseif self.layout == (isY and "VERTICAL" or "HORIZONTAL") then
@@ -1263,7 +1296,7 @@ function Box:_solveLayout(isY)
 			if child.visible then
 				local m = child:getMargin()
 				child.finalPos[x] = cursor + m[x] + child.offsetPos[x]
-				cursor = cursor + child.finalSize[x] + m[x] + m[z] + self.childGap
+				cursor = cursor + child.finalSize[x] + m[x] + m[z] + self.finalChildGap
 			end
 		end
 	elseif self.layout == (isY and "VERTICAL_REVERSED" or "HORIZONTAL_REVERSED") then
@@ -1272,7 +1305,7 @@ function Box:_solveLayout(isY)
 			if child.visible then
 				local m = child:getMargin()
 				child.finalPos[x] = cursor - m[z] - child.finalSize[x] + child.offsetPos[x]
-				cursor = cursor - child.finalSize[x] - m[x] - m[z] - self.childGap
+				cursor = cursor - child.finalSize[x] - m[x] - m[z] - self.finalChildGap
 			end
 		end
 	elseif self.layout == "HORIZONTAL_WRAP" or self.layout == "VERTICAL_WRAP" then
@@ -1294,12 +1327,12 @@ function Box:_solveLayout(isY)
 					local childC = child.finalSize[c] + m[c] + m[cEnd]
 					if hasItem and (cursorP + childP > maxPrimary) then
 						cursorP = padding[p]
-						cursorC = cursorC + lineMaxCross + self.childGap
+						cursorC = cursorC + lineMaxCross + self.finalChildGap
 						lineMaxCross = 0
 					end
 					child.finalPos[p] = cursorP + m[p] + child.offsetPos[p]
 					child.finalPos[c] = cursorC + m[c] + child.offsetPos[c]
-					cursorP = cursorP + childP + self.childGap
+					cursorP = cursorP + childP + self.finalChildGap
 					lineMaxCross = math.max(lineMaxCross, childC)
 					hasItem = true
 				end

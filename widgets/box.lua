@@ -127,8 +127,8 @@ function BoxAPI.parse(layout, canvas, children, extraParser)
 	if layout.textOffset then box:setTextoffset(layout.textOffset.x,layout.textOffset.y) end
 	
 	
-	box:setPadding(layout.padding or vec(0,0,0,0))
-	box:setMargin(layout.margin or vec(0,0,0,0))
+	if layout.padding then box:setPadding(layout.padding) end
+	if layout.margin then box:setMargin(layout.margin) end
 	return box
 end
 

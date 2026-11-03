@@ -103,21 +103,25 @@ end
 
 ---@param style GNUI.Sprite.Quad.Style?
 function Quad:applyAll(style)
+	style = style or self.style
 	self:setText()
 	self:setPos()
 	self:setSize()
-	
-	if style.texturePath then self:setTexture(style and style.texturePath) end
-	if style.uv then self:setUV(style.uv:unpack())end
-	if style.color then self:setColor(self.box.color and self.box.color or style.color) end
-	if style.childGap then self.box:setChildGap(self.box.childGap and self.box.childGap or style.childGap) end
+	local pad = (self.box and self.box.padding) or (style and style.padding) or self.padding
+	self:setPadding(pad.x, pad.y, pad.z, pad.w)
 	
 	if style then
-		self:setTextColor(self.box.textColor or (style.textColor and gncommon.color(style.textColor).xyz) or self.textColor)
-		self:setTextAlignment(self.box.textAlignment and self.box.textAlignment:unpack() or style.textAlignment:unpack())
-	else
-		self:setTextColor(self.box.textColor or self.textColor)
-		self:setTextAlignment(self.box.textAlignment and self.box.textAlignment:unpack())
+		if style.texturePath then self:setTexture(style.texturePath) end
+		if style.uv then self:setUV(style.uv:unpack()) end
+		if style.color then self:setColor(self.box.color or style.color) end
+	end
+	
+	local textColor = (self.box and self.box.textColor) or (style and style.textColor and gncommon.color(style.textColor).xyz) or self.textColor
+	self:setTextColor(textColor)
+
+	local align = (self.box and self.box.textAlignment) or (style and style.textAlignment)
+	if align then
+		self:setTextAlignment(align.x, align.y)
 	end
 end
 

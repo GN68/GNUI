@@ -232,6 +232,7 @@ end
 
 ---@param style GNUI.Sprite.Nineslice.Style
 function Nineslice:applyAll(style)
+	style = style or self.style
 	self:setText()
 	self:setPos()
 	self:setSize()
@@ -239,17 +240,16 @@ function Nineslice:applyAll(style)
 	if style then
 		self:setTexture(style.texturePath)
 		self:setUV(style.uv:unpack())
-		self:setColor((self.box.color and self.box.color or style.color):unpack())
-		self:setPadding((self.box.padding and self.box.padding or style.padding):unpack())
-		if style.childGap then self.box:setChildGap(style.childGap) end
-		
+		self:setColor((self.box.color or style.color):unpack())
+		local pad = self.box.padding or style.padding
+		self:setPadding(pad:unpack())
 	end
-	if style then
-		self:setTextColor(self.box.textColor  or (style.textColor and gncommon.color(style.textColor).xyz) or self.textColor)
-		self:setTextAlignment(self.box.textAlignment and self.box.textAlignment:unpack() or style.textAlignment:unpack())
-	else
-		self:setTextColor(self.box.textColor or self.textColor)
-		self:setTextAlignment(self.box.textAlignment and self.box.textAlignment:unpack())
+	local textColor = (self.box and self.box.textColor) or (style and style.textColor and gncommon.color(style.textColor).xyz) or self.textColor
+	self:setTextColor(textColor)
+
+	local align = (self.box and self.box.textAlignment) or (style and style.textAlignment)
+	if align then
+		self:setTextAlignment(align.x, align.y)
 	end
 	
 	self:applyDimensions()

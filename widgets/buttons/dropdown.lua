@@ -152,7 +152,8 @@ function Dropdown:_updateMinimumWidth()
 	local pad = self:getPadding()
 	local popPad = self.popup and self.popup:getPadding() or vec(0, 0, 0, 0)
 	local minW = maxW > 0 and (maxW + pad.x + pad.z + popPad.x + popPad.z + 4) or 0
-	self:setMinimumSize(minW, math.max(self.minSize.y, 11))
+	local minY = self.minSize and self.minSize.y or 0
+	self:setMinimumSize(minW, math.max(minY, 11))
 end
 
 ---@private

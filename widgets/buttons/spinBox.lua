@@ -428,6 +428,7 @@ function SpinBox:setStyleVariant(variant)
 
 	self:recalculateMargin()
 	self:recalculatePadding()
+	self:recalculateChildGap()
 	self:recalculateMinimumSize()
 	self:applyApropriateStyle()
 	self:updateKnob()

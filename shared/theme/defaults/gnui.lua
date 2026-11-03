@@ -169,7 +169,7 @@ return {
 					textColor = "#9B9B9B",
 					border = vec(1, 1, 1, 2),
 					padding = vec(2, 0, 2, -1),
-					minSize = vec(9, 0),
+					minSize = vec(9, 13),
 					textAlignment = vec(-1, 1),
 				},
 				normal = {
@@ -178,7 +178,7 @@ return {
 					uv = vec(1, 5, 3, 8),
 					border = vec(1, 1, 1, 2),
 					padding = vec(2, 0, 2, -1),
-					minSize = vec(9, 0),
+					minSize = vec(9, 13),
 					textAlignment = vec(-1, 1),
 				},
 				active = {
@@ -187,7 +187,7 @@ return {
 					uv = vec(5, 5, 7, 8),
 					border = vec(1, 1, 1, 2),
 					padding = vec(2, 0, 2, -1),
-					minSize = vec(9, 0),
+					minSize = vec(9, 13),
 					textAlignment = vec(-1, 1),
 				},
 				invalid = {
@@ -196,7 +196,7 @@ return {
 					uv = vec(9, 5, 11, 8),
 					border = vec(1, 1, 1, 2),
 					padding = vec(2, 0, 2, -1),
-					minSize = vec(9, 0),
+					minSize = vec(9, 13),
 					textAlignment = vec(-1, 1),
 				},
 			},
@@ -245,7 +245,7 @@ return {
 					textColor = "#9B9B9B",
 					border = vec(1, 1, 1, 2),
 					padding = vec(2, 0, 9, -1),
-					minSize = vec(18, 0),
+					minSize = vec(18, 13),
 					textAlignment = vec(-1, 1),
 				},
 				normal = {
@@ -254,7 +254,7 @@ return {
 					uv = vec(1, 5, 3, 8),
 					border = vec(1, 1, 1, 2),
 					padding = vec(2, 0, 9, -1),
-					minSize = vec(18, 0),
+					minSize = vec(18, 13),
 					textAlignment = vec(-1, 1),
 				},
 				active = {
@@ -263,7 +263,7 @@ return {
 					uv = vec(5, 5, 7, 8),
 					border = vec(1, 1, 1, 2),
 					padding = vec(2, 0, 9, -1),
-					minSize = vec(18, 0),
+					minSize = vec(18, 13),
 					textAlignment = vec(-1, 1),
 				},
 				invalid = {
@@ -272,7 +272,7 @@ return {
 					uv = vec(9, 5, 11, 8),
 					border = vec(1, 1, 1, 2),
 					padding = vec(2, 0, 9, -1),
-					minSize = vec(18, 0),
+					minSize = vec(18, 13),
 					textAlignment = vec(-1, 1),
 				},
 				knobLength = 7,

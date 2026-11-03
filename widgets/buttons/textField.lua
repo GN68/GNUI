@@ -99,7 +99,6 @@ function TextFieldAPI.new(box,canvas,children)
 	local self = Button.new(box,canvas,children)
 	---@cast self GNUI.Widget.TextField
 	setmetatable(self,TextField)
-	self:setMinimumSize(0,13)
 	
 	self.cursor = 0
 	self.field = ""

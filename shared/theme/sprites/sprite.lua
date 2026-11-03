@@ -90,6 +90,7 @@ function Sprite:setBox(box, layer)
 	box.sprites[self.index] = self
 	box:recalculateMargin()
 	box:recalculatePadding()
+	box:recalculateChildGap()
 	box:recalculateMinimumSize()
 
 	if self.box then
@@ -147,9 +148,6 @@ end
 function Sprite:setTextColor(r, g, b)
 	if r then
 		local color = gncommon.color(r, g, b).xyz
-		if self.style and self.style.textColor then
-			color = color * self.style.textColor
-		end
 		if self.textColor == color then return end
 		self.textColor = color
 	end
@@ -237,6 +235,7 @@ function Sprite:setStyle(style)
 	if self.box then
 		self.box:recalculateMargin()
 		self.box:recalculatePadding()
+		self.box:recalculateChildGap()
 		self.box:recalculateMinimumSize()
 		self.box:update()
 	end
@@ -250,15 +249,15 @@ function Sprite:applyAll(style)
 	self:setPos()
 	self:setSize()
 	self:setText()
-	self:setPadding()
+	local pad = (self.box and self.box.padding) or (style and style.padding) or self.padding
+	self:setPadding(pad.x, pad.y, pad.z, pad.w)
 
-	if style then
-		self:setTextColor(self.box.textColor or (style.textColor and gncommon.color(style.textColor).xyz) or self.textColor)
-		self:setTextAlignment(self.box.textAlignment and self.box.textAlignment:unpack() or style.textAlignment:unpack())
-		self.box:setChildGap(style.childGap)
-	else
-		self:setTextColor(self.box.textColor or self.textColor)
-		self:setTextAlignment(self.box.textAlignment and self.box.textAlignment:unpack())
+	local textColor = (self.box and self.box.textColor) or (style and style.textColor and gncommon.color(style.textColor).xyz) or self.textColor
+	self:setTextColor(textColor)
+
+	local align = (self.box and self.box.textAlignment) or (style and style.textAlignment)
+	if align then
+		self:setTextAlignment(align.x, align.y)
 	end
 end
 
