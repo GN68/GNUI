@@ -111,7 +111,8 @@ end
 
 
 function Label:setVisible(visible)
-	self.label:setVisible(visible)
+	self.visible = visible
+	self.label:setVisible(visible and self.text ~= nil)
 end
 
 
@@ -155,7 +156,8 @@ end
 function Display:setLabelVisible(visualID,taskID,visible)
 	local task = self:getTask(visualID,taskID)
 	if not task then return end
-	task.label:setVisible(visible)
+	task.visible = visible
+	task.label:setVisible(visible and task.text ~= nil)
 end
 
 
