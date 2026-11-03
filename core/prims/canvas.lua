@@ -97,20 +97,6 @@ end
 
 ---Forces an immidiate update to all the boxes in the queue
 ---@return GNUI.Canvas
-function Canvas:flushUpdates()
-	self.FLUSH_UPDATES:invoke()
-	for key, box in pairs(self.queueUpdate) do
-		self.queueUpdate[key] = nil
-		box:forceUpdate()
-	end
-	for index, value in ipairs(self.nextFrameCallbacks) do
-		value()
-	end
-	self.nextFrameCallbacks = {}
-	self.POST_FLUSH_UPDATES:invoke()
-	return self
-end
-
 --TODO: replace with a method that propagates from the root screen to the element, and back to the screen
 
 ---TODO: replace with a method that allows selecting boxes outside parent bounds.
@@ -119,9 +105,12 @@ end
 ---@param pos Vector2
 ---@return GNUI.Box
 local function findHoveredBox(box, pos)
+	if box.clipChildren and not box:isPosInBox(pos) then
+		return box
+	end
 	for index = #box.children, 1, -1 do
 		local childBox = box.children[index]
-		if childBox.captureInput and childBox.visible and childBox:isPosInboundingBox(pos) then
+		if not childBox.isClipped and childBox.captureInput and childBox.visible and childBox:isPosInboundingBox(pos) then
 			local hoveredBox = findHoveredBox(childBox, pos)
 			if hoveredBox and hoveredBox:isPosInBox(pos)
 			then
@@ -130,6 +119,39 @@ local function findHoveredBox(box, pos)
 		end
 	end
 	return box
+end
+
+---Forces an immidiate update to all the boxes in the queue
+---@return GNUI.Canvas
+function Canvas:flushUpdates()
+	self.FLUSH_UPDATES:invoke()
+	local hadUpdates = next(self.queueUpdate) ~= nil
+	for key, box in pairs(self.queueUpdate) do
+		self.queueUpdate[key] = nil
+		box:forceUpdate()
+	end
+	if hadUpdates and self.cursorPos then
+		local newHoveredBox = findHoveredBox(self, self.cursorPos)
+		if self.hoveredBox ~= newHoveredBox then
+			if self.hoveredBox then
+				self.hoveredBox.isHovered = false
+				self.hoveredBox.CURSOR_PRESENCE_CHANGED:invoke(false)
+			end
+			local old = self.hoveredBox
+			self.hoveredBox = newHoveredBox
+			self.HOVERED_BOX_CHANGED:invoke(newHoveredBox, old)
+			if newHoveredBox then
+				newHoveredBox.isHovered = true
+				newHoveredBox.CURSOR_PRESENCE_CHANGED:invoke(true)
+			end
+		end
+	end
+	for index, value in ipairs(self.nextFrameCallbacks) do
+		value()
+	end
+	self.nextFrameCallbacks = {}
+	self.POST_FLUSH_UPDATES:invoke()
+	return self
 end
 
 
