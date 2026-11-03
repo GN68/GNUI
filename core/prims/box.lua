@@ -521,6 +521,8 @@ function Box:getSize()
 end
 
 ---Returns the final size used to display this box.
+---
+---NOTE: this gets the final size from the last frame.
 ---@return Vector2
 function Box:getFinalSize()
 	---@diagnostic disable-next-line: return-type-mismatch, param-type-mismatch
@@ -1056,7 +1058,7 @@ function Box:update(...)
 end
 
 --- Runs the full layout pipeline on this subtree, then clears dirty state.
---- The canvas flush loop should call this, don't call it directly.
+--- The canvas flush loop should call this, don't call it directly. unless you know what youre doing.
 ---
 ---@generic self
 ---@param self self
