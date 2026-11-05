@@ -154,19 +154,11 @@ function Display:setVisualChildIndex(visualID,index)
 		index = math.clamp(index, 1, #parent.children)
 		local ogIndex = vis.index
 		if index ~= ogIndex then
-			local temp = parent.children[index]
-			parent.children[index] = vis
-			parent.children[ogIndex] = temp
-			
-			vis.index = index
-			
-			if temp then
-				temp.index = ogIndex
-			end
-			
-			self:updateDimensions(vis.id)
-			if temp then
-				self:updateDimensions(temp.id)
+			table.remove(parent.children, ogIndex)
+			table.insert(parent.children, index, vis)
+			updateChildrenIndexes(parent)
+			for _, child in ipairs(parent.children) do
+				self:updateDimensions(child.id)
 			end
 			self:updateDimensions(parent.id)
 		end

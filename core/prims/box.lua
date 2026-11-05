@@ -157,9 +157,18 @@ Box.__index = function(t, i)
 end
 Box.__style = "box"
 
-function BoxAPI.index(t, i) return Box.__index(t, i) end
+
+---Internal indexing function for Box instances.
+---@param t GNUI.Box
+---@param i any
+---@return any
+function BoxAPI.index(t, i)
+	return Box.__index(t, i)
+end
+
 
 local nextFree = 1
+
 
 ---Creates a new box, the fundemental primitive element of GNUI.
 ---@param canvas GNUI.Canvas
@@ -259,13 +268,20 @@ function BoxAPI.new(canvas)
 	return self
 end
 
+
 ---@param name string
 ---@return GNUI.Box
 function Box:setName(name)
-	if self.parent then self.parent.namedChildren[name] = self end
+	if self.parent and self.name then
+		self.parent.namedChildren[self.name] = nil
+	end
+	if self.parent and name then
+		self.parent.namedChildren[name] = self
+	end
 	self.name = name
 	return self
 end
+
 
 ---Sets the position of the box,
 ---note that position only applies if the parent box dosent automatically handle it
@@ -277,13 +293,14 @@ end
 ---@return self
 function Box:setPos(x, y)
 	---@cast self GNUI.Box
-	local newPos = gncommon.vec2(x, y)
+	local newPos = gncommon.vec2(x, y, self.pos)
 	if newPos ~= self.pos then
 		self.pos = newPos
 		self:update("pos")
 	end
 	return self
 end
+
 
 ---Sets the offset position of the box,
 ---@overload fun(self: GNUI.Box ,pos : Vector2): GNUI.Box
@@ -294,22 +311,43 @@ end
 ---@return self
 function Box:setOffsetPos(x, y)
 	---@cast self GNUI.Box
-	local newPos = gncommon.vec2(x, y)
+	local newPos = gncommon.vec2(x, y, self.offsetPos)
 	if newPos ~= self.offsetPos then
 		self.offsetPos = newPos
-		self.parent:update("pos")
+		if self.parent then
+			self.parent:update("pos")
+		else
+			self:update("pos")
+		end
 	end
 	return self
 end
 
----@return Vector2
-function Box:getPos() return self.finalPos end
 
+---Returns the local offset position of this box.
+---@return Vector2
+function Box:getOffsetPos()
+	return self.offsetPos
+end
+
+
+---Returns the final calculated local position of this box.
+---@return Vector2
+function Box:getPos()
+	return self.finalPos
+end
+
+
+---Returns the absolute global screen position of this box.
 ---@return Vector2
 function Box:getGlobalPos()
 	return self.absPos
 end
 
+
+---Recursively prints the box hierarchy tree to stdout.
+---@param box GNUI.Box
+---@param level integer
 local function printTree(box,level)
 	print(string.rep("\t",level) .. (box.name or (type(box)..box.id)))
 	for key, value in pairs(box.children) do
@@ -317,22 +355,20 @@ local function printTree(box,level)
 	end
 end
 
+
+---Prints the entire box hierarchy tree starting from this box.
 function Box:printTree()
 	printTree(self,0)
 	print("----------------")
 end
 
+
+---Returns the global bounding box (left, top, right, bottom) of this box and its children.
 ---@return Vector4
 function Box:getGlobalBounds()
-	local pos = self.bounds + self.finalPos.xyxy
-	local parent = self.parent
-	while parent do
-		pos = pos + parent.finalPos.xyxy
-		parent = parent.parent
-	end
-	---@cast pos Vector4
-	return pos
+	return self.bounds + self.absPos.xyxy
 end
+
 
 ---@generic self
 ---@param self self
@@ -352,6 +388,8 @@ function Box:setMargin(left, top, right, bottom)
 	return self
 end
 
+
+---Recalculates the final margin of this box, taking sprite styles into account.
 function Box:recalculateMargin()
 	if self.margin then
 		self.finalMargin = self.margin:copy()
@@ -370,8 +408,13 @@ function Box:recalculateMargin()
 	end
 end
 
+
+---Returns the final margin of this box.
 ---@return Vector4
-function Box:getMargin() return self.finalMargin end
+function Box:getMargin()
+	return self.finalMargin
+end
+
 
 ---@generic self
 ---@param self self
@@ -391,9 +434,15 @@ function Box:setPadding(left, top, right, bottom)
 	return self
 end
 
----@return Vector4
-function Box:getPadding() return self.finalPadding end
 
+---Returns the final padding of this box.
+---@return Vector4
+function Box:getPadding()
+	return self.finalPadding
+end
+
+
+---Recalculates the final padding of this box and propagates it to any text labels.
 function Box:recalculatePadding()
 	if self.padding then
 		self.finalPadding = self.padding:copy()
@@ -417,6 +466,7 @@ function Box:recalculatePadding()
 	end
 end
 
+
 ---@generic self
 ---@param self self
 ---@return self
@@ -429,6 +479,8 @@ function Box:setChildGap(gap)
 	return self
 end
 
+
+---Recalculates the child gap of this box, taking sprite styles into account.
 function Box:recalculateChildGap()
 	if self.childGap ~= nil then
 		self.finalChildGap = self.childGap
@@ -443,8 +495,13 @@ function Box:recalculateChildGap()
 	end
 end
 
+
+---Returns the gap spacing between children in layout.
 ---@return number
-function Box:getChildGap() return self.finalChildGap end
+function Box:getChildGap()
+	return self.finalChildGap
+end
+
 
 ---Sets the size of the box
 ---NOTE: setting an axis to -1 will make it automatically fit that given axis.
@@ -464,6 +521,7 @@ function Box:setSize(x, y)
 	return self
 end
 
+
 ---@overload fun(self: GNUI.Box ,size : Vector2): GNUI.Box
 ---@param x number?
 ---@param y number?
@@ -478,9 +536,15 @@ function Box:setMinimumSize(x, y)
 	return self
 end
 
----@return Vector2
-function Box:getMinimumSize() return self.finalMinSize end
 
+---Returns the final minimum size of this box.
+---@return Vector2
+function Box:getMinimumSize()
+	return self.finalMinSize
+end
+
+
+---Recalculates the minimum size of this box, taking padding and sprite styles into account.
 function Box:recalculateMinimumSize()
 	if self.minSize then
 		self.finalMinSize = self.minSize:copy()
@@ -489,15 +553,17 @@ function Box:recalculateMinimumSize()
 		for key, sprite in pairs(self.sprites) do
 			if sprite.style then
 				local style = sprite.style
+				local styleMin = style.minSize or vec(0, 0)
 				minSize.x = math.max(minSize.x, self.finalPadding.x + self.finalPadding.z,
-					style.minSize.x)
+					styleMin.x)
 				minSize.y = math.max(minSize.y, self.finalPadding.y + self.finalPadding.w,
-					style.minSize.y)
+					styleMin.y)
 			end
 		end
 		self.finalMinSize = minSize
 	end
 end
+
 
 ---@overload fun(self: GNUI.Box ,size : Vector2): GNUI.Box
 ---@param x number?
@@ -507,14 +573,19 @@ end
 ---@return self
 function Box:setMaximumSize(x, y)
 	---@cast self GNUI.Box
-	self.maxSize = gncommon.vec2(x, y)
+	self.maxSize = gncommon.vec2(x, y, self.maxSize)
 	self.finalMaxSize = self.maxSize -- lmao
 	self:update("dim")
 	return self
 end
 
+
+---Returns the maximum size of this box.
 ---@return Vector2
-function Box:getMaximumSize() return self.finalMaxSize end
+function Box:getMaximumSize()
+	return self.finalMaxSize
+end
+
 
 ---@generic self
 ---@param self self
@@ -528,6 +599,7 @@ function Box:setSizing(x, y)
 	return self
 end
 
+
 ---Gets the stored size for this box, for the actual size used for displaying, use `Box:getFinalSize()`
 ---@return Vector2
 function Box:getSize()
@@ -535,6 +607,7 @@ function Box:getSize()
 	---@diagnostic disable-next-line: return-type-mismatch, param-type-mismatch
 	return math.clamp(self.size, minSize, self.maxSize)
 end
+
 
 ---Returns the final size used to display this box.
 ---
@@ -544,6 +617,7 @@ function Box:getFinalSize()
 	---@diagnostic disable-next-line: return-type-mismatch, param-type-mismatch
 	return self.finalSize
 end
+
 
 ---Sets the layout to use for its children,
 ---@generic self
@@ -557,6 +631,7 @@ function Box:setLayout(layout)
 	return self
 end
 
+
 ---@overload fun(self: GNUI.Box ,hv: Vector2): GNUI.Box
 ---@param h number
 ---@param v number
@@ -565,10 +640,18 @@ end
 ---@return self
 function Box:setChildAlign(h, v)
 	---@cast self GNUI.Box
-	self.childAlign = gncommon.vec2(h, v)
+	self.childAlign = gncommon.vec2(h, v, self.childAlign)
 	self:update("dim")
 	return self
 end
+
+
+---Returns the child alignment vector of this box.
+---@return Vector2
+function Box:getChildAlign()
+	return self.childAlign
+end
+
 
 ---@overload fun(self: GNUI.Box, hv: Vector2): GNUI.Box
 ---@param h number?
@@ -586,10 +669,13 @@ function Box:setGrowDirection(h, v)
 	return self
 end
 
+
+---Returns the grow direction vector of this box.
 ---@return Vector2
 function Box:getGrowDirection()
 	return self.growDirection
 end
+
 
 ---Sets the offset applied to all children of the box
 ---@overload fun(self: GNUI.Box, offset: Vector2): GNUI.Box
@@ -600,7 +686,7 @@ end
 ---@return self
 function Box:setChildrenOffset(x, y)
 	---@cast self GNUI.Box
-	local newOffset = gncommon.vec2(x, y)
+	local newOffset = gncommon.vec2(x, y, self.childrenOffset)
 	if newOffset ~= self.childrenOffset then
 		self.childrenOffset = newOffset
 		self:update("pos")
@@ -608,10 +694,13 @@ function Box:setChildrenOffset(x, y)
 	return self
 end
 
+
+---Returns the children offset vector of this box.
 ---@return Vector2
 function Box:getChildrenOffset()
 	return self.childrenOffset
 end
+
 
 ---Sets whether children completely out of bounds of this box stop rendering/updating,
 ---and restricts child input hit-testing to within this box's bounds.
@@ -628,10 +717,13 @@ function Box:setClipChildren(clip)
 	return self
 end
 
+
+---Returns whether children outside this box are clipped from rendering.
 ---@return boolean
 function Box:getClipChildren()
 	return self.clipChildren
 end
+
 
 ---@generic self
 ---@param self self
@@ -649,6 +741,7 @@ function Box:setSprite(sprite, layer)
 	self:update("dim")
 	return self
 end
+
 
 ---Sets the style of the sprite of this box, if no sprite exists, it will create one for that given style
 ---
@@ -673,12 +766,17 @@ function Box:setStyleVariant(variant)
 	return self
 end
 
+
 ---Returns the model part of the box
 ---
 ---NOTE: this is Figura exclusive
-function Box:getModelPart() self.canvas.display:getModelPart(self.visualID) end
+function Box:getModelPart()
+	self.canvas.display:getModelPart(self.visualID)
+end
+
 
 --────  Children Management  ────────────────────────────────────────────────────────--
+
 
 ---@param box GNUI.Box
 local function recalculateChildrenIndexes(box)
@@ -687,6 +785,7 @@ local function recalculateChildrenIndexes(box)
 	end
 	box.CHILDREN_ORDER_CHANGED:invoke(box)
 end
+
 
 ---@param child GNUI.Box
 ---@generic self
@@ -712,6 +811,7 @@ function Box:addChild(child)
 	return child
 end
 
+
 ---Removes a child from the box
 ---@param box GNUI.Box
 ---@generic self
@@ -725,8 +825,10 @@ function Box:removeChild(box)
 		table.remove(self.children, childIndex)
 		self.CHILD_REMOVED:invoke(box)
 		
-		if box.name then box.namedChildren[box.name] = nil end
-		self.canvas.display:removeChild(self.visualID, box.visualID)
+		if box.name then self.namedChildren[box.name] = nil end
+		if self.canvas and self.canvas.display then
+			self.canvas.display:removeChild(self.visualID, box.visualID)
+		end
 		
 		recalculateChildrenIndexes(self)
 		box.parent = nil
@@ -736,6 +838,7 @@ function Box:removeChild(box)
 	self:update("dim")
 	return self
 end
+
 
 ---@param box GNUI.Box
 ---@param name string
@@ -748,6 +851,7 @@ local function searchChild(box, name)
 	end
 end
 
+
 ---@generic self
 ---@param self self
 ---@return self
@@ -758,25 +862,19 @@ function Box:setChildIndex(index)
 		index = math.clamp(index, 1, #self.parent.children)
 		local ogIndex = self.childIndex
 		if index ~= ogIndex then
-			local temp = parent.children[index]
-			parent.children[index] = self
-			parent.children[ogIndex] = temp
-			
-			self.childIndex = index
-
-			if temp then
-				temp.childIndex = ogIndex
-			end
-			parent.CHILDREN_ORDER_CHANGED:invoke(index,ogIndex)
+			table.remove(parent.children, ogIndex)
+			table.insert(parent.children, index, self)
+			recalculateChildrenIndexes(parent)
 			local vis = self.visualID
-			self.canvas.display:setVisualChildIndex(vis, index)
+			if self.canvas and self.canvas.display then
+				self.canvas.display:setVisualChildIndex(vis, index)
+			end
 			self.parent:update("dim")
-		end -- TODO: figure out why this isnt reordering the input handler AND renderer
+		end
 	end
-	
-	
 	return self
 end
+
 
 ---Returns the first box with that given name, through its entirey hierarchy.
 ---@param name string
@@ -784,6 +882,7 @@ end
 function Box:getChild(name) 
 	return searchChild(self, name)
 end
+
 
 ---Removes the parent of the box
 ---@generic self
@@ -798,6 +897,7 @@ function Box:removeParent()
 	return self
 end
 
+
 ---Sets the parent of the box
 ---@param parent GNUI.Box
 ---@return GNUI.Box
@@ -810,9 +910,13 @@ function Box:setParent(parent)
 	return self
 end
 
+
 ---Returns the parent of the box
 ---@return GNUI.Box?
-function Box:getParent() return self.parent end
+function Box:getParent()
+	return self.parent
+end
+
 
 ---@generic self
 ---@param self self
@@ -829,6 +933,7 @@ function Box:setText(text, slot)
 	return self
 end
 
+
 ---@generic self
 ---@param self self
 ---@return self
@@ -843,6 +948,14 @@ function Box:setTextScale(scale)
 	return self
 end
 
+
+---Returns the text scaling factor of this box.
+---@return number
+function Box:getTextScale()
+	return self.textScale
+end
+
+
 ---@generic self
 ---@param self self
 ---@return self
@@ -850,14 +963,22 @@ end
 ---@param v -1|0|1
 function Box:setTextAlignment(h, v)
 	---@cast self GNUI.Box
-	local newAlignment = gncommon.vec2(h, v)
+	local newAlignment = gncommon.vec2(h, v, self.textAlignment)
 	if newAlignment ~= self.textAlignment then
 		self.textAlignment = newAlignment
 		self:update("text")
-		for key, value in pairs(self.sprites) do value:setTextAlignment(h, v) end
+		for key, value in pairs(self.sprites) do value:setTextAlignment(newAlignment.x, newAlignment.y) end
 	end
 	return self
 end
+
+
+---Returns the text alignment vector of this box.
+---@return Vector2
+function Box:getTextAlignment()
+	return self.textAlignment
+end
+
 
 ---@generic self
 ---@param self self
@@ -878,6 +999,13 @@ function Box:setTextColor(r, g, b)
 end
 
 
+---Returns the text color of this box.
+---@return Vector3
+function Box:getTextColor()
+	return self.textColor
+end
+
+
 ---@generic self
 ---@param self self
 ---@return self
@@ -885,13 +1013,21 @@ end
 ---@param y -1|0|1
 function Box:setTextoffset(x, y)
 	---@cast self GNUI.Box
-	local newOffset = gncommon.vec2(x, y)
+	local newOffset = gncommon.vec2(x, y, self.textOffset)
 	if newOffset ~= self.textOffset then
 		self.textOffset = newOffset
 		self:update("text")
-		for key, value in pairs(self.sprites) do value:setTextOffset(x, y) end
+		for key, value in pairs(self.sprites) do value:setTextOffset(newOffset.x, newOffset.y) end
 	end
 	return self
+end
+Box.setTextOffset = Box.setTextoffset
+
+
+---Returns the text pixel offset vector of this box.
+---@return Vector2
+function Box:getTextOffset()
+	return self.textOffset
 end
 
 
@@ -912,6 +1048,22 @@ function Box:setWrapText(wrap)
 	return self
 end
 
+
+---Returns whether text within this box wraps.
+---@return boolean
+function Box:getWrapText()
+	return self.wrapText
+end
+
+
+---Sets the tint color of this box.
+---@overload fun(self: self, rgb: Vector3): self
+---@param r number|Vector3
+---@param g number?
+---@param b number?
+---@generic self
+---@param self self
+---@return self
 function Box:setColor(r, g, b)
 	local clr = gncommon.vec3(r, g, b)
 	if self.color ~= clr then
@@ -920,6 +1072,14 @@ function Box:setColor(r, g, b)
 	end
 	return self
 end
+
+
+---Returns the tint color of this box.
+---@return Vector3
+function Box:getColor()
+	return self.color
+end
+
 
 ---@generic self
 ---@param self self
@@ -934,6 +1094,36 @@ function Box:setVisible(visible)
 	return self
 end
 
+
+---Returns whether this box is visible.
+---@return boolean
+function Box:getVisible()
+	return self.visible
+end
+Box.isVisible = Box.getVisible
+
+
+---Returns the sizing mode table for this box.
+---@return {x:GNUI.Box.SizingMode,y:GNUI.Box.SizingMode}
+function Box:getSizing()
+	return self.sizing
+end
+
+
+---Returns the layout mode of this box.
+---@return GNUI.Box.LayoutMode?
+function Box:getLayout()
+	return self.layout
+end
+
+
+---Returns whether this box captures mouse and keyboard input.
+---@return boolean
+function Box:getCaptureInputs()
+	return self.captureInput
+end
+
+
 ---@overload fun(self: GNUI.Box ,pos : Vector2): Vector2
 ---@param x number
 ---@param y number
@@ -942,7 +1132,9 @@ function Box:toLocal(x, y)
 	return gncommon.vec2(x, y) - self.absPos
 end
 
+
 -- ────────────────────────-<  >-────────────────────────--
+
 
 ---@param pos Vector2
 ---@return boolean
@@ -952,8 +1144,8 @@ function Box:isPosInboundingBox(pos)
 	local globalPos = bounds.xy
 	local otherEnd = bounds.zw
 
-	if pos.x > globalPos.x and pos.x < otherEnd.x and pos.y > globalPos.y and
-		 pos.y < otherEnd.y then
+	if pos.x >= globalPos.x and pos.x <= otherEnd.x and pos.y >= globalPos.y and
+		 pos.y <= otherEnd.y then
 		return true
 	end
 	return false
@@ -968,13 +1160,12 @@ function Box:isPosInBox(pos)
 	local start = gpos.xy
 	local otherEnd = gpos.xy + self.finalSize
 
-	if pos.x > start.x and pos.x < otherEnd.x and pos.y > start.y and
-		 pos.y < otherEnd.y then
+	if pos.x >= start.x and pos.x <= otherEnd.x and pos.y >= start.y and
+		 pos.y <= otherEnd.y then
 		return true
 	end
 	return false
 end
-
 
 
 ---@param captureInput boolean
@@ -987,17 +1178,36 @@ function Box:setCaptureInputs(captureInput)
 	return self
 end
 
+
 ---Deletes this box and its children
 function Box:free()
 	self:removeParent()
+	for i = #self.children, 1, -1 do
+		self.children[i]:free()
+	end
 	if self.canvas then
-		self.canvas.queueUpdate[self.flaggedUpdate] = nil
-		self.flaggedUpdate = nil
+		if self.flaggedUpdate then
+			self.canvas.queueUpdate[self.flaggedUpdate] = nil
+			self.flaggedUpdate = nil
+		end
+		if self.canvas.hoveredBox == self then
+			self.canvas.hoveredBox = nil
+		end
+		if self.canvas.pressedButtons then
+			for k, btn in pairs(self.canvas.pressedButtons) do
+				if btn == self then
+					self.canvas.pressedButtons[k] = nil
+				end
+			end
+		end
 		for index, sprite in pairs(self.sprites) do sprite:free() end
-		self.canvas.display:removeVisual(self.visualID)
+		if self.canvas.display and self.visualID then
+			self.canvas.display:removeVisual(self.visualID)
+		end
 		self.canvas = nil
 	end
 end
+
 
 ---@param self GNUI.Box
 ---@return Vector4
@@ -1020,8 +1230,17 @@ local function calculateBounds(self)
 	return self.bounds + self.finalPos.xyxy
 end
 
+
+---Calculates the bounding box for this box and its children.
+---@generic self
+---@param self self
+---@return self
 function Box:calculateBounds()
-	calculateBounds(self.canvas)
+	if self.canvas then
+		calculateBounds(self.canvas)
+	else
+		calculateBounds(self)
+	end
 	return self
 end
 
@@ -1039,6 +1258,7 @@ end
 
 -- ────────────────────────-< UPDATERS >-────────────────────────--
 
+
 ---@param box    GNUI.Box
 ---@param hasDim boolean   true when sizes / content changed
 ---@return GNUI.Box
@@ -1049,7 +1269,7 @@ local function findUpdateRoot(box, hasDim)
 	local root = box
 	local p = box.parent
 	while p do
-		if p.layout ~= "FIXED" or p.__type == "Container" then
+		if p.layout ~= "FIXED" or p.__type == "Container" or (root.sizing.x == "FILL" or root.sizing.y == "FILL") then
 			root = p
 		end
 		if (p.sizing.x == "FIXED" and p.sizing.y == "FIXED") then
@@ -1060,6 +1280,7 @@ local function findUpdateRoot(box, hasDim)
 	end
 	return root
 end
+
 
 --- Queue a box for an update, merging flags if it was already queued.
 --- This is the only place boxes are added to the canvas update queue.
@@ -1080,6 +1301,7 @@ local function queueBox(box, dim, pos, visual)
 		box.flaggedUpdate = id
 	end
 end
+
 
 ---@param ... GNUI.Box.Flags
 function Box:update(...)
@@ -1122,12 +1344,9 @@ function Box:update(...)
 	end
 end
 
+
 --- Runs the full layout pipeline on this subtree, then clears dirty state.
 --- The canvas flush loop should call this, don't call it directly. unless you know what youre doing.
----
----@generic self
----@param self self
----@return self
 ---@param box GNUI.Box
 ---@param clearDim boolean
 local function clearSubtreeQueue(box, clearDim)
@@ -1144,6 +1363,7 @@ local function clearSubtreeQueue(box, clearDim)
 		clearSubtreeQueue(child, clearDim)
 	end
 end
+
 
 ---@param box GNUI.Box
 ---@return number, number, number, number
@@ -1168,6 +1388,12 @@ local function getAncestorClipBounds(box)
 	return clipX1, clipY1, clipX2, clipY2
 end
 
+
+---Runs the full layout solve pipeline on this subtree immediately and updates display visuals.
+---The canvas flush loop calls this; avoid calling directly unless necessary.
+---@generic self
+---@param self self
+---@return self
 function Box:forceUpdate()
 	---@cast self GNUI.Box
 	local doDim    = self.pendingDim
@@ -1235,6 +1461,7 @@ function Box:forceUpdate()
 	return self
 end
 
+
 ---@param isY boolean
 function Box:_solveFit(isY)
 	local x = isY and "y" or "x"
@@ -1252,7 +1479,7 @@ function Box:_solveFit(isY)
 		local padding = self:getPadding()
 		local textComp = 0
 
-		if self.text then
+		if next(self.text) ~= nil then
 			local availW = isY and ((self.finalSize.x - padding.x - padding.z) / self.textScale) or math.huge
 			local ts = utils.getTextSize(self.text[next(self.text)] or "", availW, self.wrapText) * self.textScale
 			textComp = isY and ts.y or ts.x
@@ -1265,17 +1492,14 @@ function Box:_solveFit(isY)
 		local inner = 0
 
 		if parallel then
-			for _, child in ipairs(self.children) do
-				if child.visible and child.sizing[x] ~= "FILL" then
-					local m = child:getMargin()
-					inner = inner + child.finalSize[x] + m[x] + m[z]
-				end
-			end
-			
 			local visibleChildCount = 0
-			for index, value in ipairs(self.children) do
-				if value.visible then
+			for _, child in ipairs(self.children) do
+				if child.visible then
 					visibleChildCount = visibleChildCount + 1
+					if child.sizing[x] ~= "FILL" then
+						local m = child:getMargin()
+						inner = inner + child.finalSize[x] + m[x] + m[z]
+					end
 				end
 			end
 			
@@ -1325,6 +1549,7 @@ function Box:_solveFit(isY)
 	end
 end
 
+
 ---@param isY boolean
 function Box:_solveFill(isY)
 	local x = isY and "y" or "x"
@@ -1341,21 +1566,16 @@ function Box:_solveFill(isY)
 		local remaining = self.finalSize[x] - padding[x] - padding[z]
 		local fillers = {}
 
+		local visibleChildCount = 0
 		for _, child in ipairs(self.children) do
 			if child.visible then
+				visibleChildCount = visibleChildCount + 1
 				local m = child:getMargin()
 				if child.sizing[x] == "FILL" then
 					fillers[#fillers + 1] = child
 					child.finalSize[x] = 0 -- reset; will be set below
 				end
 				remaining = remaining - child.finalSize[x] - m[x] - m[z]
-			end
-		end
-		
-		local visibleChildCount = 0
-		for index, value in ipairs(self.children) do
-			if value.visible then
-				visibleChildCount = visibleChildCount + 1
 			end
 		end
 		
@@ -1385,6 +1605,7 @@ function Box:_solveFill(isY)
 		self:_solveFit(false)
 	end
 end
+
 
 ---@param isY boolean
 function Box:_solveLayout(isY)
@@ -1542,6 +1763,8 @@ function Box:_calcAbsPos(parentAbs, clipX1, clipY1, clipX2, clipY2)
 	end
 end
 
+
+---Updates visual positions and crop parameters in the display renderer for this box and its children.
 function Box:_updatePos()
 	if not self.canvas then return end
 	if self.isClipped then
@@ -1580,6 +1803,8 @@ function Box:_updatePos()
 	for _, child in ipairs(self.children) do child:_updatePos() end
 end
 
+
+---Pushes dimension, position, color, and sprite updates to the display renderer for this box and its children.
 function Box:_updateSprites()
 	if not self.canvas then return end
 	local d = self.canvas.display
@@ -1626,6 +1851,8 @@ function Box:_updateSprites()
 	for _, child in ipairs(self.children) do child:_updateSprites() end
 end
 
+
+---Updates text contents across all assigned text sprites for this box.
 function Box:_updateTexts()
 	for key, value in pairs(self.text) do
 		if self.sprites[key] then

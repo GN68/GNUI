@@ -79,11 +79,12 @@ function SliderAPI.new(box,canvas,children)
 
 	local boxKnob = Box.new(canvas)
 	for index, value in ipairs(children) do
+		value:setCaptureInputs(false)
 		self:addChild(value)
 	end
 	self.boxKnob = boxKnob
-	boxKnob.captureInput = false
 	boxKnob:setSizing("FIXED", "FIXED")
+	boxKnob:setCaptureInputs(false)
 	self:setSizing("FIXED", "FIT")
 	self:addChild(boxKnob)
 

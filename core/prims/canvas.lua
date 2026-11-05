@@ -204,38 +204,18 @@ local function processUnhandledInputCapture(box, event, ...)
 	return false
 end
 
--- propagate scroll input from parent to the given box.
--- while allowing each step of the way to capture the inputs.
 ---@param box GNUI.Box
+---@param event string
 ---@param ... any
----@return boolean
-local function proccessInputCapture(box, event, ...)
-	-- prioritize calculating for parent first
-	if box.parent then
-		if proccessInputCapture(box.parent, event, ...) then
-			-- input has been captured by a parent
-			return true
-		end
-	end
-
-	-- check if its been captured
+---@return boolean?
+local function processInput(box, event, ...)
+	if not box then return end
 	local outs = box[event]:invoke(...)
 	for index, value in ipairs(outs) do
 		if value[1] then
 			return true
 		end
 	end
-	return false
-end
-
-
----@param box GNUI.Box
----@param event string
----@param ... any
-local function processInput(box, event, ...)
-	if not box then return end
-	local processed = proccessInputCapture(box, event, ...)
-	if processed then return true end
 	return processUnhandledInputCapture(box, "UNHANDLED_" .. event, ...)
 end
 
