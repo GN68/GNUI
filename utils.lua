@@ -64,7 +64,7 @@ end
 function util.getTextSize(content, maxWidth, wrap)
 	content = getWidthAccurateText(content)
 	
-	return client.getTextDimensions(content, maxWidth+1, wrap):sub(1,1)
+	return client.getTextDimensions(content, maxWidth+1, wrap):sub(1)
 end
 
 ---@param text string
