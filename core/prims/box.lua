@@ -98,7 +98,6 @@ local BoxAPI = {}
 ---@field pendingClippedSprites boolean
 ---@field crop Vector4
 ---@field clipDist Vector4
----@field isTouchOrCrop boolean
 ---@field scroll Vector2
 ---
 ---@field visible boolean
@@ -216,7 +215,6 @@ function BoxAPI.new(canvas)
 		pendingClippedSprites = false,
 		crop = vec(0, 0, 0, 0),
 		clipDist = vec(-math.huge, -math.huge, -math.huge, -math.huge),
-		isTouchOrCrop = false,
 
 		visible = true,
 		color = vec(1, 1, 1),
@@ -1314,7 +1312,7 @@ function Box:update(...)
 		if flag == "dim" then
 			hasDim = true
 		elseif flag == "text" then
-			if self.sizing.x == "FIT" or self.sizing.y == "FIT" then
+			if self.sizing.x ~= "FIXED" or self.sizing.y ~= "FIXED" then
 				hasDim = true
 			else
 				hasVisual = true
@@ -1475,7 +1473,7 @@ function Box:_solveFit(isY)
 
 	if sz == "FIXED" then
 		self.finalSize[x] = math.max(self.finalMinSize[x], self.size[x])
-	elseif sz == "FIT" then
+	elseif sz == "FIT" or sz == "FILL" then
 		local padding = self:getPadding()
 		local textComp = 0
 
@@ -1496,10 +1494,8 @@ function Box:_solveFit(isY)
 			for _, child in ipairs(self.children) do
 				if child.visible then
 					visibleChildCount = visibleChildCount + 1
-					if child.sizing[x] ~= "FILL" then
-						local m = child:getMargin()
-						inner = inner + child.finalSize[x] + m[x] + m[z]
-					end
+					local m = child:getMargin()
+					inner = inner + child.finalSize[x] + m[x] + m[z]
 				end
 			end
 			
@@ -1512,7 +1508,7 @@ function Box:_solveFit(isY)
 			local lineMaxCross = 0
 			local hasItem = false
 			for _, child in ipairs(self.children) do
-				if child.visible and child.sizing[x] ~= "FILL" then
+				if child.visible then
 					local m = child:getMargin()
 					local childP = child.finalSize[p] + m[p] + m[pEnd]
 					local childC = child.finalSize[x] + m[x] + m[z]
@@ -1529,7 +1525,7 @@ function Box:_solveFit(isY)
 			inner = inner + lineMaxCross
 		else
 			for _, child in ipairs(self.children) do
-				if child.visible and child.sizing[x] ~= "FILL" then
+				if child.visible then
 					local m = child:getMargin()
 					inner = math.max(inner, child.finalSize[x] + m[x] + m[z])
 				end
@@ -1565,6 +1561,7 @@ function Box:_solveFill(isY)
 	if parallel then
 		local remaining = self.finalSize[x] - padding[x] - padding[z]
 		local fillers = {}
+		local minSizes = {}
 
 		local visibleChildCount = 0
 		for _, child in ipairs(self.children) do
@@ -1572,28 +1569,53 @@ function Box:_solveFill(isY)
 				visibleChildCount = visibleChildCount + 1
 				local m = child:getMargin()
 				if child.sizing[x] == "FILL" then
-					fillers[#fillers + 1] = child
-					child.finalSize[x] = 0 -- reset; will be set below
+					local idx = #fillers + 1
+					fillers[idx] = child
+					minSizes[idx] = math.max(child.finalMinSize[x] or 0, child.finalSize[x] or 0)
+				else
+					remaining = remaining - child.finalSize[x]
 				end
-				remaining = remaining - child.finalSize[x] - m[x] - m[z]
+				remaining = remaining - m[x] - m[z]
 			end
 		end
 		
 		remaining = remaining - self.finalChildGap * math.max(visibleChildCount - 1, 0)
 
 		if #fillers > 0 then
-			local share = math.max(0, remaining) / #fillers
-			for _, child in ipairs(fillers) do
-				child.finalSize[x] = math.max(child.finalMinSize[x] or 0, share)
+			local locked = {}
+			local unlockedCount = #fillers
+			while unlockedCount > 0 do
+				local share = math.max(0, remaining) / unlockedCount
+				local anyLocked = false
+				for i, child in ipairs(fillers) do
+					if not locked[i] and minSizes[i] >= share then
+						local allowed = math.max(0, remaining)
+						child.finalSize[x] = math.min(minSizes[i], allowed)
+						remaining = remaining - child.finalSize[x]
+						locked[i] = true
+						unlockedCount = unlockedCount - 1
+						anyLocked = true
+					end
+				end
+				if not anyLocked then
+					for i, child in ipairs(fillers) do
+						if not locked[i] then
+							child.finalSize[x] = share
+						end
+					end
+					break
+				end
 			end
 		end
 	else
+		local maxAvail = math.max(0, self.finalSize[x] - padding[x] - padding[z])
 		for _, child in ipairs(self.children) do
 			if child.visible and child.sizing[x] == "FILL" then
 				local m = child:getMargin()
-				child.finalSize[x] = math.max(child.finalMinSize[x] or 0,
-					self.finalSize[x] - padding[x] -
-					padding[z] - m[x] - m[z])
+				local childMax = math.max(0, maxAvail - m[x] - m[z])
+				local minSz = math.max(child.finalMinSize[x] or 0, child.finalSize[x] or 0)
+				local target = self.finalSize[x] - padding[x] - padding[z] - m[x] - m[z]
+				child.finalSize[x] = math.min(math.max(minSz, target), childMax)
 			end
 		end
 	end
@@ -1748,7 +1770,6 @@ function Box:_calcAbsPos(parentAbs, clipX1, clipY1, clipX2, clipY2)
 	self.crop.y = math.max(0, distT)
 	self.crop.z = math.max(0, distR)
 	self.crop.w = math.max(0, distB)
-	self.isTouchOrCrop = (distL >= 0) or (distT >= 0) or (distR >= 0) or (distB >= 0)
 
 	local cX1, cY1, cX2, cY2 = clipX1, clipY1, clipX2, clipY2
 	if self.clipChildren then
@@ -1785,7 +1806,7 @@ function Box:_updatePos()
 	self.canvas.display:setPos(self.visualID, self.finalPos.x, self.finalPos.y)
 	local c = self.crop
 	local dist = self.clipDist
-	local textVis = not self.isTouchOrCrop
+	local textVis = (c.x + c.z < self.finalSize.x) and (c.y + c.w < self.finalSize.y)
 	for _, sprite in pairs(self.sprites) do
 		local expand = sprite.style and sprite.style.expand
 		if expand then
@@ -1832,7 +1853,7 @@ function Box:_updateSprites()
 	self:_updateTexts()
 	local c = self.crop
 	local dist = self.clipDist
-	local textVis = not self.isTouchOrCrop
+	local textVis = (c.x + c.z < self.finalSize.x) and (c.y + c.w < self.finalSize.y)
 	for _, sprite in pairs(self.sprites) do
 		sprite:setSize(self.finalSize.x, self.finalSize.y)
 		local expand = sprite.style and sprite.style.expand
