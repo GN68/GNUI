@@ -122,7 +122,7 @@ return {
 					uv = vec(16, 0, 20, 4),
 					border = vec(2, 2, 2, 2),
 					expand = vec(1, 1, 1, 1),
-					minSize = vec(11, 11),
+					minSize = vec(5, 5),
 				},
 				hovered = {
 					type = "nineslice",
@@ -130,7 +130,7 @@ return {
 					uv = vec(12, 0, 16, 4),
 					border = vec(2, 2, 2, 2),
 					expand = vec(1, 1, 1, 1),
-					minSize = vec(11, 11),
+					minSize = vec(5, 5),
 				},
 				pressed = {
 					type = "nineslice",
@@ -138,7 +138,7 @@ return {
 					uv = vec(16, 0, 20, 4),
 					border = vec(2, 2, 2, 2),
 					expand = vec(1, 1, 1, 1),
-					minSize = vec(11, 11),
+					minSize = vec(5, 5),
 				},
 				knob = {
 					type = "nineslice",
